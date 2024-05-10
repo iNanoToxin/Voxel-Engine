@@ -1,7 +1,6 @@
 #include <iostream>
 #include <GLFW/glfw3.h>
-#include "third-party/glm/glm.hpp"
-// #include "glm/glm.hpp"
+#include "glm.hpp"
 
 int main()
 {
