@@ -7,4 +7,4 @@ add_subdirectory(third-party/imgui-1.90.6)
 
 add_executable("${CMAKE_PROJECT_NAME}" main.cpp)
 
-target_link_libraries(VoxelEngine PRIVATE glfw glm)
+target_link_libraries(VoxelEngine PRIVATE glfw glm imgui)
