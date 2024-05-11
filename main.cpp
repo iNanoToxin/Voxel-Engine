@@ -1,7 +1,7 @@
 #include <iostream>
 #include <GLFW/glfw3.h>
 #include "glm.hpp"
-#include "imgui"
+#include "imgui.h"
 
 int main()
 {
