@@ -1,10 +1,15 @@
 #include <iostream>
-#include <GLFW/glfw3.h>
-#include "glm.hpp"
-#include "imgui.h"
+
+#include "window.h"
 
 int main()
 {
-    std::cout << "Hello, world!" << std::endl;
+    VoxelEngine::Window window(2560, 1440, "Voxel Engine", true);
+
+    while (!window.shouldClose())
+    {
+        window.clear(255, 70, 70);
+        window.swap();
+    }
     return 0;
 }
