@@ -16,7 +16,7 @@ VoxelEngine::Window::Window(u16 p_Width, u16 p_Height, const char* p_Title, bool
 
     VE_assert(glfwInit(), "Failed to initialize GLFW library.");
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SAMPLES, 64);
 

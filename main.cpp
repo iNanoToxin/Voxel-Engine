@@ -111,7 +111,7 @@ int main()
         window.clear(20, 20, 20);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        if (glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS)
+        if (glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS)
         {
             camera.capture();
         }
