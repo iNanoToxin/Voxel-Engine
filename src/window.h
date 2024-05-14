@@ -16,15 +16,22 @@ namespace VoxelEngine
         f64 m_DeltaTime = 0.0f;
         f64 m_LastFrame;
     public:
-        Window(u16 p_Width, u16 p_Height, const char* p_Title, bool p_FullScreen = true);
+        u16 width;
+        u16 height;
+
+        Window(u16 p_Width, u16 p_Height, const char* p_Title, bool p_FullScreen = false);
         ~Window();
 
-        bool shouldClose();
         void clear(u8 p_R, u8 p_G, u8 p_B, f32 p_A = 0.0f);
         void swap();
 
-        f64 getDeltaTime() const;
-        f64 getFps() const;
+        [[nodiscard]] bool shouldClose();
+        [[nodiscard]] f64 getDeltaTime() const;
+        [[nodiscard]] f64 getFps() const;
+        [[nodiscard]] GLFWwindow* getWindow()
+        {
+            return m_Window;
+        }
     };
 }
 #endif

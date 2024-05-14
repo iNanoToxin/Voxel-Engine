@@ -1,5 +1,7 @@
 #include "debug.h"
 
+std::vector<GLuint> ignored_ids = {131185};
+
 namespace VoxelEngine
 {
     const char* get_source(GLenum p_Source)
@@ -49,6 +51,11 @@ namespace VoxelEngine
     {
         (void) p_Length;
         (void) p_UserParam;
+
+        if (std::find(ignored_ids.begin(), ignored_ids.end(), p_Id) != ignored_ids.end())
+        {
+            return;
+        }
 
         std::cerr << "Debug Message: " << p_Message << "\n"
             << "    " << "Source: " << get_source(p_Source) << "\n"
