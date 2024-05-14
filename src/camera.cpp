@@ -84,6 +84,30 @@ namespace VoxelEngine
         {
             m_Position -= m_Up * speed;
         }
+        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_LEFT) == GLFW_PRESS)
+        {
+            m_Yaw -= speed;
+            contrainAngles();
+            updateVectors();
+        }
+        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_RIGHT) == GLFW_PRESS)
+        {
+            m_Yaw += speed;
+            contrainAngles();
+            updateVectors();
+        }
+        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_UP) == GLFW_PRESS)
+        {
+            m_Pitch += speed;
+            contrainAngles();
+            updateVectors();
+        }
+        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_DOWN) == GLFW_PRESS)
+        {
+            m_Pitch -= speed;
+            contrainAngles();
+            updateVectors();
+        }
     }
 
     void Camera::updateMousePosition()
