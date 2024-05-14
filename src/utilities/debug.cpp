@@ -52,9 +52,12 @@ namespace VoxelEngine
         (void) p_Length;
         (void) p_UserParam;
 
-        if (std::find(ignored_ids.begin(), ignored_ids.end(), p_Id) != ignored_ids.end())
+        for (GLuint id : ignored_ids)
         {
-            return;
+            if (id == p_Id)
+            {
+                return;
+            }
         }
 
         std::cerr << "Debug Message: " << p_Message << "\n"
