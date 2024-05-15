@@ -2,20 +2,23 @@
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 
+void scroll_callback(GLFWwindow* p_Window, f64 p_X, f64 p_Y)
+{
+    (void) p_Window;
+    (void) p_X;
+    VoxelEngine::Camera::getCamera()->forward(p_Y * 10.0f);
+}
+
 namespace VoxelEngine
 {
+    Camera* Camera::m_CurrentCamera = nullptr;
+
     Camera::Camera(Window* p_Window)
     {
         m_Window = p_Window;
-        resetMousePosition();
-        update();
-    }
-
-    void Camera::resetMousePosition()
-    {
-        m_LastX = 0.0f;
-        m_LastY = 0.0f;
-        glfwSetCursorPos(m_Window->getWindow(), m_LastX, m_LastY);
+        m_CurrentCamera = this;
+        updateMousePosition();
+        glfwSetScrollCallback(m_Window->getWindow(), &scroll_callback);
     }
 
     void Camera::contrainAngles()
@@ -58,7 +61,7 @@ namespace VoxelEngine
 
     void Camera::updatePosition()
     {
-        f32 speed = m_Window->getDeltaTime() * 20.0f;
+        f32 speed = m_Window->getDeltaTime() * 10.0f;
 
         if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_W) == GLFW_PRESS)
         {
@@ -123,7 +126,7 @@ namespace VoxelEngine
 
     void Camera::lookAt(const glm::vec3& p_Position)
     {
-        resetMousePosition();
+        updateMousePosition();
 
         glm::vec3 direction = glm::normalize(p_Position - m_Position);
         m_Yaw = glm::degrees(glm::atan(direction.z, direction.x));
@@ -136,7 +139,7 @@ namespace VoxelEngine
         if (!m_IsCaptured)
         {
             glfwSetInputMode(m_Window->getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            resetMousePosition();
+            updateMousePosition();
             m_IsCaptured = true;
         }
         update();
@@ -151,6 +154,11 @@ namespace VoxelEngine
         }
     }
 
+    void Camera::forward(f32 p_Step)
+    {
+        m_Position += m_Front * p_Step;
+    }
+
     glm::mat4 Camera::getViewMatrix() const
     {
         return glm::lookAt(m_Position, m_Position + m_Front, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -158,14 +166,16 @@ namespace VoxelEngine
 
     glm::mat4 Camera::getProjectionMatrix() const
     {
-        int width, height;
-        glfwGetWindowSize(m_Window->getWindow(), &width, &height);
-        // fmt::println("{}, {}", width, height);
-        return glm::perspective(glm::radians(m_Fov), float(width) / float(height), 0.1f, 5000.0f);
+        return glm::perspective(glm::radians(m_Fov), float(m_Window->width) / float(m_Window->height), 0.1f, 100.0f);
     }
 
     glm::vec3 Camera::getPosition() const
     {
         return m_Position;
+    }
+
+    Camera* Camera::getCamera()
+    {
+        return m_CurrentCamera;
     }
 }

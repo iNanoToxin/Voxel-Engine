@@ -11,9 +11,6 @@ VoxelEngine::Window::Window(u16 p_Width, u16 p_Height, const char* p_Title, bool
     VE_assert(p_Height != 0, "Screen height cannot be zero.");
     VE_assert(p_Title != nullptr, "Title cannot be a nullptr.");
 
-    width = p_Width;
-    height = p_Height;
-
     VE_assert(glfwInit(), "Failed to initialize GLFW library.");
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -35,8 +32,9 @@ VoxelEngine::Window::Window(u16 p_Width, u16 p_Height, const char* p_Title, bool
     glDebugMessageCallback(VoxelEngine::debug_message_callback, nullptr);
 
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_MULTISAMPLE);
-    glEnable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    // glEnable(GL_MULTISAMPLE);
+    // glEnable(GL_CULL_FACE);
 
     glViewport(0, 0, p_Width, p_Height);
 
@@ -45,10 +43,14 @@ VoxelEngine::Window::Window(u16 p_Width, u16 p_Height, const char* p_Title, bool
 
     if (p_FullScreen)
     {
+        width = mode->width;
+        height = mode->height;
         glfwSetWindowMonitor(m_Window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
     }
     else
     {
+        width = p_Width;
+        height = p_Height;
         glfwSetWindowPos(m_Window, (mode->width - width) / 2, (mode->height - height) / 2);
     }
 }

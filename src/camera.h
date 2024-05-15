@@ -9,6 +9,7 @@ namespace VoxelEngine
     class Camera
     {
     private:
+        static Camera* m_CurrentCamera;
         Window* m_Window = nullptr;
         f64 m_LastX = 0.0f;
         f64 m_LastY = 0.0f;
@@ -26,7 +27,6 @@ namespace VoxelEngine
         void contrainAngles();
         void updateAngles();
         void updateVectors();
-        void updateMousePosition();
     public:
         explicit Camera(Window* p_Window);
 
@@ -35,11 +35,13 @@ namespace VoxelEngine
         void capture();
         void release();
         void updatePosition();
-        void resetMousePosition();
+        void updateMousePosition();
+        void forward(f32 p_Step);
 
         [[nodiscard]] glm::mat4 getViewMatrix() const;
         [[nodiscard]] glm::mat4 getProjectionMatrix() const;
         [[nodiscard]] glm::vec3 getPosition() const;
+        static Camera* getCamera();
     };
 }
 
