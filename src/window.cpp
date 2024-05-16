@@ -31,9 +31,10 @@ VoxelEngine::Window::Window(u16 p_Width, u16 p_Height, const char* p_Title, bool
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(VoxelEngine::debug_message_callback, nullptr);
 
+    glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    // glEnable(GL_MULTISAMPLE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // glEnable(GL_CULL_FACE);
 
     glViewport(0, 0, p_Width, p_Height);

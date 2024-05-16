@@ -154,7 +154,7 @@ namespace VoxelEngine
         }
     }
 
-    void Camera::forward(f32 p_Step)
+    void Camera::forward(const f32& p_Step)
     {
         m_Position += m_Front * p_Step;
     }
@@ -166,7 +166,7 @@ namespace VoxelEngine
 
     glm::mat4 Camera::getProjectionMatrix() const
     {
-        return glm::perspective(glm::radians(m_Fov), float(m_Window->width) / float(m_Window->height), 0.1f, 100.0f);
+        return glm::perspective(glm::radians(m_Fov), float(m_Window->width) / float(m_Window->height), m_Near, m_Far);
     }
 
     glm::vec3 Camera::getPosition() const
@@ -174,8 +174,23 @@ namespace VoxelEngine
         return m_Position;
     }
 
+    f32 Camera::getNear() const
+    {
+        return m_Near;
+    }
+
+    f32 Camera::getFar() const
+    {
+        return m_Far;
+    }
+
     Camera* Camera::getCamera()
     {
         return m_CurrentCamera;
+    }
+
+    void Camera::setPosition(const glm::vec3& p_Position)
+    {
+        m_Position = p_Position;
     }
 }

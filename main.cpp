@@ -108,14 +108,16 @@ int main()
 
     VoxelEngine::Camera camera(&window);
     camera.lookAt(glm::vec3(0.0f, 0.0f, -5.0f));
+    camera.setPosition(glm::vec3(0.0f, 1.0f, 0.0f));
     camera.forward(-4.0f);
 
     float vertices[] = {
-        -1.0f, 0.0f, -1.0f,
-        1.0f, 0.0f, -1.0f,
-        1.0f, 0.0f, 1.0f,
-        -1.0f, 0.0f, 1.0f
+        -1.0f, -1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        -1.0f, 1.0f, 0.0f
     };
+
     unsigned int indices[] = {
         0, 1, 2,
         2, 3, 0
@@ -185,6 +187,8 @@ int main()
 
         grid_shader.use();
         // grid_shader.setMat4("model", glm::mat4(1.0f));
+        grid_shader.setFloat("near", camera.getNear());
+        grid_shader.setFloat("far", camera.getFar());
         grid_shader.setMat4("projection", camera.getProjectionMatrix());
         grid_shader.setMat4("view", camera.getViewMatrix());
         // grid_shader.setVec3("cameraPos", camera.getPosition());
