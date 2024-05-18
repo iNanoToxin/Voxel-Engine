@@ -1,26 +1,24 @@
 #version 430 core
 
-layout (location = 0) in vec4 aPos;
+layout (location = 0) in vec4 a_Pos;
 
-uniform mat4 view;
-uniform mat4 projection;
+uniform mat4 u_View;
+uniform mat4 u_Projection;
 
-out vec3 nearPoint;
-out vec3 farPoint;
+out vec3 o_NearPoint;
+out vec3 o_FarPoint;
 
-
-vec3 UnprojectPoint(float x, float y, float z)
+vec3 unproject_point(float x, float y, float z)
 {
-    mat4 viewInv = inverse(view);
-    mat4 projInv = inverse(projection);
-    vec4 unprojectedPoint =  viewInv * projInv * vec4(x, y, z, 1.0);
-    return unprojectedPoint.xyz / unprojectedPoint.w;
+    mat4 view_inverse = inverse(u_View);
+    mat4 proj_inverse = inverse(u_Projection);
+    vec4 unprojected_point = view_inverse * proj_inverse * vec4(x, y, z, 1.0);
+    return unprojected_point.xyz / unprojected_point.w;
 }
 
 void main()
 {
-    nearPoint = UnprojectPoint(aPos.x, aPos.y, 0.0);
-    farPoint = UnprojectPoint(aPos.x, aPos.y, 1.0);
-    gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
-//    gl_Position = projection * view * vec4(aPos, 1.0);
+    o_NearPoint = unproject_point(a_Pos.x, a_Pos.y, 0.0);
+    o_FarPoint = unproject_point(a_Pos.x, a_Pos.y, 1.0);
+    gl_Position = vec4(a_Pos.x, a_Pos.y, 0.0, 1.0);
 }

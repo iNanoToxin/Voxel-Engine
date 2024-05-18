@@ -61,7 +61,7 @@ namespace VoxelEngine
 
     void Camera::updatePosition()
     {
-        f32 speed = m_Window->getDeltaTime() * 10.0f;
+        f32 speed = m_Window->getDeltaTime() * 10.0f * (m_Position.y / 10.0f);
 
         if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_W) == GLFW_PRESS)
         {

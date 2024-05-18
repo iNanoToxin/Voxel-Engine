@@ -18,7 +18,7 @@ namespace VoxelEngine
         f64 m_Yaw = -90.0f;
         f64 m_Pitch = 0.0f;
         f32 m_Near = 0.01f;
-        f32 m_Far = 1000.0f;
+        f32 m_Far = 500000.0f;
         bool m_IsCaptured = false;
 
         glm::vec3 m_Front{0.0f, 0.0f, -1.0f};

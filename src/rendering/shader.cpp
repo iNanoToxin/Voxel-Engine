@@ -16,7 +16,7 @@ namespace VoxelEngine
         std::string source = Util::read_file(p_Path);
         const char* code = source.c_str();
 
-        char info_log[512];
+        char info_log[1028];
         i32 success;
 
         u32 shader = glCreateShader(p_Type);
@@ -26,7 +26,7 @@ namespace VoxelEngine
 
         if (!success)
         {
-            glGetShaderInfoLog(shader, 512, nullptr, info_log);
+            glGetShaderInfoLog(shader, 1028, nullptr, info_log);
             VE_failure("Failed to compile shader.", info_log, p_Path);
         }
         return shader;
@@ -35,7 +35,7 @@ namespace VoxelEngine
     u32 Shader::linkShader(u32 p_VertexShader, u32 p_FragmentShader) const
     {
         int success;
-        char info_log[512];
+        char info_log[1028];
 
         u32 shader_id = glCreateProgram();
         glAttachShader(shader_id, p_VertexShader);
@@ -45,7 +45,7 @@ namespace VoxelEngine
         glGetProgramiv(shader_id, GL_LINK_STATUS, &success);
         if (!success)
         {
-            glGetProgramInfoLog(shader_id, 512, nullptr, info_log);
+            glGetProgramInfoLog(shader_id, 1028, nullptr, info_log);
             VE_failure("Failed to link shader.", info_log, std::to_string(m_Id).c_str());
         }
 

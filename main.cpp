@@ -16,6 +16,10 @@ int main()
     const char* grid_fragment_path = R"(C:\Users\dylan\JetBrains\CLionProjects\Voxel-Engine\shaders\grid.frag)";
     VoxelEngine::Shader grid_shader(grid_vertex_path, grid_fragment_path);
 
+    // const char* grid_vertex_path2 = R"(C:\Users\dylan\JetBrains\CLionProjects\Voxel-Engine\shaders\grid_overlay.vert)";
+    // const char* grid_fragment_path2 = R"(C:\Users\dylan\JetBrains\CLionProjects\Voxel-Engine\shaders\grid_overlay.frag)";
+    // VoxelEngine::Shader grid_shader2(grid_vertex_path2, grid_fragment_path2);
+
     std::vector<glm::mat4> mat;
     u32 vao, vbo, ibo;
     {
@@ -186,12 +190,11 @@ int main()
 
 
         grid_shader.use();
-        // grid_shader.setMat4("model", glm::mat4(1.0f));
-        grid_shader.setFloat("near", camera.getNear());
-        grid_shader.setFloat("far", camera.getFar());
-        grid_shader.setMat4("projection", camera.getProjectionMatrix());
-        grid_shader.setMat4("view", camera.getViewMatrix());
-        // grid_shader.setVec3("cameraPos", camera.getPosition());
+        grid_shader.setFloat("u_Near", camera.getNear());
+        grid_shader.setFloat("u_Far", camera.getFar());
+        grid_shader.setMat4("u_Projection", camera.getProjectionMatrix());
+        grid_shader.setMat4("u_View", camera.getViewMatrix());
+        grid_shader.setVec3("u_CameraPos", camera.getPosition());
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
