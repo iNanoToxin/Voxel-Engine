@@ -174,6 +174,11 @@ namespace VoxelEngine
         return m_Position;
     }
 
+    glm::vec3 Camera::getFront() const
+    {
+        return m_Front;
+    }
+
     f32 Camera::getNear() const
     {
         return m_Near;

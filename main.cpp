@@ -3,6 +3,9 @@
 #include "window.h"
 #include "rendering/shader.h"
 #include "camera.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
 int main()
 {
@@ -146,8 +149,14 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window.getWindow(), true);
+    ImGui_ImplOpenGL3_Init("#version 430");
 
-
+    ImGuiIO* io = &ImGui::GetIO();
+    io->AddMouseButtonEvent(GLFW_MOUSE_BUTTON_1, true);
 
     while (!window.shouldClose())
     {
@@ -203,6 +212,108 @@ int main()
         {
             glfwSetWindowShouldClose(window.getWindow(), true);
         }
+
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        if (ImGui::Begin("Voxel Enginess"))
+        {
+            static ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+
+            if (ImGui::BeginTable("Data", 3, flags))
+            {
+                glm::vec3 camera_position = camera.getPosition();
+                glm::vec3 camera_front = camera_position + camera.getFront() * 5.0f;
+
+                double x_position, y_position;
+                glfwGetCursorPos(window.getWindow(), &x_position, &y_position);
+
+                ImGui::TableSetupColumn("Info", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn("Extra", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableHeadersRow();
+
+                ImGui::PushID(0);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Camera Position");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+                ImGui::Text("%.2f, %.2f, %.2f", camera_position.x, camera_position.y, camera_position.z);
+                ImGui::PopStyleColor();
+                ImGui::TableSetColumnIndex(2);
+                if (ImGui::Button("Copy"))
+                {
+                    std::stringstream pos;
+                    pos << "glm::vec3(";
+                    pos << std::to_string(camera_position.x) << ", ";
+                    pos << std::to_string(camera_position.y) << ", ";
+                    pos << std::to_string(camera_position.z) << ")";
+                    glfwSetClipboardString(window.getWindow(), pos.str().c_str());
+                }
+                ImGui::PopID();
+
+                ImGui::PushID(1);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Camera Front (5)");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+                ImGui::Text("%.2f, %.2f, %.2f", camera_front.x, camera_front.y, camera_front.z);
+                ImGui::PopStyleColor();
+                ImGui::TableSetColumnIndex(2);
+                if (ImGui::Button("Copy"))
+                {
+                    std::stringstream pos;
+                    pos << "glm::vec3(";
+                    pos << std::to_string(camera_front.x) << ", ";
+                    pos << std::to_string(camera_front.y) << ", ";
+                    pos << std::to_string(camera_front.z) << ")";
+                    glfwSetClipboardString(window.getWindow(), pos.str().c_str());
+                }
+                ImGui::PopID();
+
+                ImGui::PushID(2);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Mouse Position");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
+                ImGui::Text("%.2f, %.2f", x_position, y_position);
+                ImGui::PopStyleColor();
+                ImGui::TableSetColumnIndex(2);
+                if (ImGui::Button("Copy"))
+                {
+                    std::stringstream pos;
+                    pos << std::to_string(x_position) << ", ";
+                    pos << std::to_string(y_position);
+                    glfwSetClipboardString(window.getWindow(), pos.str().c_str());
+                }
+                ImGui::PopID();
+
+                ImGui::PushID(3);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Application average");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 255, 255));
+                ImGui::Text("%.3f ms/frame", 1000.0f / io->Framerate);
+                ImGui::PopStyleColor();
+                ImGui::TableSetColumnIndex(2);
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 255, 255));
+                ImGui::Text("%.1f FPS", io->Framerate);
+                ImGui::PopStyleColor();
+                ImGui::PopID();
+
+                ImGui::EndTable();
+            }
+            ImGui::End();
+        }
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         window.swap();
     }
