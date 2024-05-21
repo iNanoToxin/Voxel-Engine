@@ -1,3 +1,5 @@
+#version 430 core
+
 /* SPDX-FileCopyrightText: 2017-2023 Blender Authors
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
@@ -29,6 +31,11 @@
 #pragma BLENDER_REQUIRE(common_view_lib.glsl)
 #pragma BLENDER_REQUIRE(common_math_lib.glsl)
 
+#define LINE_SIZE 10
+#define flag_test(a, b) false
+
+float steps[] = {0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0};
+
 float get_grid(vec2 co, vec2 fwidthCos, vec2 grid_scale)
 {
     vec2 half_size = grid_scale / 2.0;
@@ -39,7 +46,7 @@ float get_grid(vec2 co, vec2 fwidthCos, vec2 grid_scale)
     grid_domain /= fwidthCos;
 /* Collapse waves. */
     float line_dist = min(grid_domain.x, grid_domain.y);
-    return GRID_LINE_STEP(line_dist - grid_buf.line_size);
+    return GRID_LINE_STEP(line_dist - LINE_SIZE);
 }
 
 vec3 get_axes(vec3 co, vec3 fwidthCos, float line_size)
@@ -48,21 +55,24 @@ vec3 get_axes(vec3 co, vec3 fwidthCos, float line_size)
 /* Modulate by the absolute rate of change of the coordinates
    * (make line have the same width under perspective). */
     axes_domain /= fwidthCos;
-    return GRID_LINE_STEP(axes_domain - (line_size + grid_buf.line_size));
+    return GRID_LINE_STEP(axes_domain - (line_size + LINE_SIZE));
 }
 
 #define linearstep(p0, p1, v) (clamp(((v) - (p0)) / abs((p1) - (p0)), 0.0, 1.0))
 
+vec3 plane_axes = vec3(1, 0, 1);
+
 void main()
 {
-    vec3 P = local_pos * grid_buf.size.xyz;
+    vec3 P = frag_pos * grid_buf.size.xyz;
     vec3 dFdxPos = dFdx(P);
     vec3 dFdyPos = dFdy(P);
     vec3 fwidthPos = abs(dFdxPos) + abs(dFdyPos);
     P += cameraPos * plane_axes;
 
     float dist, fade;
-    bool is_persp = drw_view.winmat[3][3] == 0.0;
+//    bool is_persp = drw_view.winmat[3][3] == 0.0;
+    bool is_persp = true;
     if (is_persp) {
         vec3 V = cameraPos - P;
         dist = length(V);
@@ -107,36 +117,38 @@ void main()
     /* The grid begins to appear when it comprises 4 pixels. */
         grid_res *= 4;
 
-    /* For UV/Image editor use grid_buf.zoom_factor. */
-        if (flag_test(grid_flag, PLANE_IMAGE) &&
-        /* Grid begins to appear when the length of one grid unit is at least
-         * (256/grid_size) pixels Value of grid_size defined in `overlay_grid.c`. */
-        !flag_test(grid_flag, CUSTOM_GRID))
-        {
-            grid_res = grid_buf.zoom_factor;
-        }
+//    /* For UV/Image editor use grid_buf.zoom_factor. */
+//        if (flag_test(grid_flag, PLANE_IMAGE) &&
+//        /* Grid begins to appear when the length of one grid unit is at least
+//         * (256/grid_size) pixels Value of grid_size defined in `overlay_grid.c`. */
+//        !flag_test(grid_flag, CUSTOM_GRID))
+//        {
+//            grid_res = grid_buf.zoom_factor;
+//        }
 
     /** Keep in sync with `SI_GRID_STEPS_LEN` in `DNA_space_types.h`. */
         #define STEPS_LEN 8
-    int step_id_x = STEPS_LEN - 1;
+        int step_id_x = STEPS_LEN - 1;
         int step_id_y = STEPS_LEN - 1;
 
     /* Loop backwards a compile-time-constant number of steps. */
         for (int i = STEPS_LEN - 2; i >= 0; --i) {
-            step_id_x = (grid_res < grid_buf.steps[i].x) ? i : step_id_x; /* Branchless. */
-            step_id_y = (grid_res < grid_buf.steps[i].y) ? i : step_id_y;
+//            step_id_x = (grid_res < grid_buf.steps[i].x) ? i : step_id_x; /* Branchless. */
+//            step_id_y = (grid_res < grid_buf.steps[i].y) ? i : step_id_y;
+            step_id_x = steps[i];
+            step_id_y = steps[i];
         }
 
     /* From biggest to smallest. */
-        float scale0x = step_id_x > 0 ? grid_buf.steps[step_id_x - 1].x : 0.0;
-        float scaleAx = grid_buf.steps[step_id_x].x;
-        float scaleBx = grid_buf.steps[min(step_id_x + 1, STEPS_LEN - 1)].x;
-        float scaleCx = grid_buf.steps[min(step_id_x + 2, STEPS_LEN - 1)].x;
+        float scale0x = step_id_x > 0 ? steps[step_id_x - 1].x : 0.0;
+        float scaleAx = steps[step_id_x].x;
+        float scaleBx = steps[min(step_id_x + 1, STEPS_LEN - 1)].x;
+        float scaleCx = steps[min(step_id_x + 2, STEPS_LEN - 1)].x;
 
-        float scale0y = step_id_y > 0 ? grid_buf.steps[step_id_y - 1].y : 0.0;
-        float scaleAy = grid_buf.steps[step_id_y].y;
-        float scaleBy = grid_buf.steps[min(step_id_y + 1, STEPS_LEN - 1)].y;
-        float scaleCy = grid_buf.steps[min(step_id_y + 2, STEPS_LEN - 1)].y;
+        float scale0y = step_id_y > 0 ? steps[step_id_y - 1].y : 0.0;
+        float scaleAy = steps[step_id_y].y;
+        float scaleBy = steps[min(step_id_y + 1, STEPS_LEN - 1)].y;
+        float scaleCy = steps[min(step_id_y + 2, STEPS_LEN - 1)].y;
 
     /* Subtract from 1.0 to fix blending when `scale0x == scaleAx`. */
         float blend = 1.0 - linearstep(scale0x + scale0y, scaleAx + scaleAy, grid_res + grid_res);

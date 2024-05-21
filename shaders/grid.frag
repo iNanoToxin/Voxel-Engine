@@ -12,7 +12,26 @@ uniform vec3 u_CameraPos;
 
 float steps[] = {0.001f, 0.01f, 0.1f, 1.0f, 10.0f, 100.0f, 1000.0f, 10000.0f};
 
-vec4 grid(vec3 frag_pos, float scale) {
+#define LINE_SIZE 10
+#define M_1_SQRTPI 0.5641895835477563 /* `1/sqrt(pi)`. */
+#define DISC_RADIUS (M_1_SQRTPI * 1.05)
+#define GRID_LINE_SMOOTH_START (0.5 + DISC_RADIUS)
+#define GRID_LINE_SMOOTH_END (0.5 - DISC_RADIUS)
+#define GRID_LINE_STEP(dist) smoothstep(GRID_LINE_SMOOTH_START, GRID_LINE_SMOOTH_END, dist)
+
+vec3 plane_axes = vec3(1, 0, 1);
+
+vec3 get_axes(vec3 co, vec3 fwidthCos, float line_size)
+{
+    vec3 axes_domain = abs(co);
+/* Modulate by the absolute rate of change of the coordinates
+   * (make line have the same width under perspective). */
+    axes_domain /= fwidthCos;
+    return GRID_LINE_STEP(axes_domain - (line_size + LINE_SIZE));
+}
+
+vec4 grid(vec3 frag_pos, float scale)
+{
     vec2 coord = frag_pos.xz * scale;
     vec2 derivative = fwidth(coord);
     vec2 grid = abs(fract(coord - 0.5) - 0.5) / derivative;
@@ -33,22 +52,49 @@ vec4 grid(vec3 frag_pos, float scale) {
     {
         color.x = 1.0;
     }
+
+
+    vec3 axes_dist, axes_fwidth;
+
+//    axes_dist.x = dot(coord.yz, plane_axes.yz);
+//    axes_fwidth.x = dot(derivative.yz, plane_axes.yz);
+//
+//    axes_dist.y = dot(coord.xz, plane_axes.xz);
+//    axes_fwidth.y = dot(derivative.xz, plane_axes.xz);
+
+    axes_dist.z = dot(coord.xy, plane_axes.xy);
+    axes_fwidth.z = dot(derivative.xy, plane_axes.xy);
+
+    vec3 axes = get_axes(axes_dist, axes_fwidth, 0.1);
+
+//    color.a = max(out_color.a, axes.x);
+//    color.rgb = (axes.x < 1e-8) ? color.rgb : vec3(1, 0, 0);
+//
+//    color.a = max(out_color.a, axes.y);
+//    color.rgb = (axes.y < 1e-8) ? color.rgb : vec3(0, 1, 0);
+
+    color.a = max(color.a, axes.z);
+    color.rgb = (axes.z < 1e-8) ? color.rgb : vec3(0, 0, 1);
+
     return color;
 }
 
-float compute_depth(vec3 pos) {
+float compute_depth(vec3 pos)
+{
     vec4 clip_space_pos = u_Projection * u_View * vec4(pos.xyz, 1.0);
     return (clip_space_pos.z / clip_space_pos.w);
 }
 
-float compute_linear_depth(vec3 pos) {
+float compute_linear_depth(vec3 pos)
+{
     vec4 clip_space_pos = u_Projection * u_View * vec4(pos.xyz, 1.0);
     float clip_space_depth = (clip_space_pos.z / clip_space_pos.w) * 2.0 - 1.0;
     float linear_depth = (2.0 * u_Near * u_Far) / (u_Far + u_Near - clip_space_depth * (u_Far - u_Near));
     return linear_depth / u_Far;
 }
 
-vec4 max4(vec4 a, vec4 b) {
+vec4 max4(vec4 a, vec4 b)
+{
     return vec4(max(a.x, b.x), max(a.y, b.y), max(a.z, b.z), max(a.w, b.w));
 }
 
@@ -85,6 +131,7 @@ void main()
     if (grid_2.w > 0) grid_2.w = smoothstep(curr, next, ypos);
 
     vec4 grid_color = max4(grid_1, grid_2);
+    grid_color = grid(frag_pos, 10);
 //    vec4 grid_color = grid(frag_pos, 10) + u_CameraPos.y * 0.000000000000000001;
 
 

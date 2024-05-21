@@ -117,6 +117,7 @@ int main()
     camera.lookAt(glm::vec3(0.0f, 0.0f, -5.0f));
     camera.setPosition(glm::vec3(0.0f, 1.0f, 0.0f));
     camera.forward(-4.0f);
+    camera.lookAt(glm::vec3(0.0f, 0.0f, 5.0f));
 
     float vertices[] = {
         -1.0f, -1.0f, 0.0f,
@@ -163,7 +164,7 @@ int main()
         window.clear(20, 20, 20);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        if (glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS)
+        if (glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS || glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS)
         {
             camera.capture();
         }
