@@ -4,21 +4,19 @@ layout (location = 0) in vec4 a_Pos;
 
 uniform mat4 u_View;
 uniform mat4 u_Projection;
+uniform vec3 u_CameraPos;
 
-out vec3 o_NearPoint;
-out vec3 o_FarPoint;
-
-vec3 unproject_point(float x, float y, float z)
-{
-    mat4 view_inverse = inverse(u_View);
-    mat4 proj_inverse = inverse(u_Projection);
-    vec4 unprojected_point = view_inverse * proj_inverse * vec4(x, y, z, 1.0);
-    return unprojected_point.xyz / unprojected_point.w;
-}
+out vec3 local_pos;
+out vec3 plane_axes;
+out vec3 grid_size;
 
 void main()
 {
-    o_NearPoint = unproject_point(a_Pos.x, a_Pos.y, 0.0);
-    o_FarPoint = unproject_point(a_Pos.x, a_Pos.y, 1.0);
-    gl_Position = vec4(a_Pos.x, a_Pos.y, 0.0, 1.0);
+    local_pos = vec3(a_Pos.x, a_Pos.y, 0.0);
+    plane_axes = vec3(1, 1, 0);
+    grid_size = vec3(5, 5, 5);
+
+    vec3 real_pos = u_CameraPos * plane_axes + local_pos * grid_size;
+
+    gl_Position = u_Projection * u_View * vec4(real_pos, 1.0);
 }
