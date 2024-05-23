@@ -164,7 +164,7 @@ int main()
         window.clear(20, 20, 20);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        if (glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS || glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS)
+        if (!io->WantCaptureMouse && (glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS || glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS))
         {
             camera.capture();
         }
@@ -309,6 +309,10 @@ int main()
                 ImGui::PopID();
 
                 ImGui::EndTable();
+
+                ImGui::SliderFloat("Camera Position X", &camera.m_Position.x, -10000.0f, 10000.0f, "%.03f");
+                ImGui::SliderFloat("Camera Position Y", &camera.m_Position.y, -10000.0f, 10000.0f, "%.03f");
+                ImGui::SliderFloat("Camera Position Z", &camera.m_Position.z, -10000.0f, 10000.0f, "%.03f");
             }
             ImGui::End();
         }
