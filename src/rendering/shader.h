@@ -13,10 +13,11 @@ namespace VoxelEngine
     class Shader
     {
     private:
-        u32 m_Id;
+        // u32 m_Id;
 
         u32 getUniformLocation(const char* p_Uniform) const;
     public:
+        u32 m_Id;
         Shader(const char* p_VertexShader, const char* p_FragmentShader);
 
         [[nodiscard]] u32 compileShader(const char* p_Path, GLenum p_Type) const;

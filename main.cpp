@@ -7,6 +7,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+
 int main()
 {
     VoxelEngine::Window window(2560 / 2, 1440 / 2, "Voxel Engine", true);
@@ -72,7 +73,7 @@ int main()
         };
 
         glm::mat4 model(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 5.0f));
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
 
         mat.push_back(model);
 
@@ -114,10 +115,8 @@ int main()
 
 
     VoxelEngine::Camera camera(&window);
-    camera.lookAt(glm::vec3(0.0f, 0.0f, -5.0f));
-    camera.setPosition(glm::vec3(0.0f, 1.0f, 0.0f));
-    camera.forward(-4.0f);
-    camera.lookAt(glm::vec3(0.0f, 0.0f, 5.0f));
+    camera.setPosition(glm::vec3(0.0f, 0.0f, 5.0f));
+    camera.lookAt(glm::vec3(0.0f, 0.0f, 0.0f));
 
     float vertices[] = {
         -1.0f, -1.0f, 0.0f,
@@ -149,6 +148,27 @@ int main()
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+
+
+    u32 block_index = glGetUniformBlockIndex(grid_shader.m_Id, "Properties");
+
+    float near = camera.getNear();
+    float far = camera.getFar();
+
+    u32 ubo;
+    glGenBuffers(1, &ubo);
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+    glBufferData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::mat4) + sizeof(glm::vec3) + 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(camera.getViewMatrix()));
+    glBufferSubData(GL_UNIFORM_BUFFER, 1 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(glm::inverse(camera.getViewMatrix())));
+    glBufferSubData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(camera.getProjectionMatrix()));
+    glBufferSubData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::mat4), sizeof(glm::vec3), glm::value_ptr(camera.getPosition()));
+    glBufferSubData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::mat4) + sizeof(glm::vec3), sizeof(float), &near);
+    glBufferSubData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::mat4) + sizeof(glm::vec3) + sizeof(float), sizeof(float), &far);
+    glUniformBlockBinding(grid_shader.m_Id, block_index, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
+
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -194,17 +214,37 @@ int main()
             // glBindBuffer(GL_ARRAY_BUFFER, ibo);
             // glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * mat.size(), mat.data(), GL_STATIC_DRAW);
 
+            // glBindBuffer(GL_UNIFORM_BUFFER, ubo);
             glBindVertexArray(vao);
             glDrawArraysInstanced(GL_TRIANGLES, 0, 36, mat.size());
         }
 
 
         grid_shader.use();
-        grid_shader.setFloat("u_Near", camera.getNear());
-        grid_shader.setFloat("u_Far", camera.getFar());
-        grid_shader.setMat4("u_Projection", camera.getProjectionMatrix());
-        grid_shader.setMat4("u_View", camera.getViewMatrix());
-        grid_shader.setVec3("u_CameraPos", camera.getPosition());
+
+        GLbyte* ptr = (GLbyte*) glMapBufferRange(GL_UNIFORM_BUFFER, 0, 3 * sizeof(glm::mat4) + sizeof(glm::vec3), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT);
+
+        if (ptr)
+        {
+            memcpy(ptr, glm::value_ptr(camera.getViewMatrix()), sizeof(glm::mat4));
+            memcpy(ptr + sizeof(glm::mat4), glm::value_ptr(glm::inverse(camera.getViewMatrix())), sizeof(glm::mat4));
+            memcpy(ptr + 2 * sizeof(glm::mat4), glm::value_ptr(camera.getProjectionMatrix()), sizeof(glm::mat4));
+            memcpy(ptr + 3 * sizeof(glm::mat4), glm::value_ptr(camera.getPosition()), sizeof(glm::vec3));
+            glUnmapBuffer(GL_UNIFORM_BUFFER);
+        }
+
+
+        // glBufferSubData(GL_UNIFORM_BUFFER, 0 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(camera.getViewMatrix()));
+        // glBufferSubData(GL_UNIFORM_BUFFER, 1 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(glm::inverse(camera.getViewMatrix())));
+        // glBufferSubData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(camera.getProjectionMatrix()));
+        // glBufferSubData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::mat4), sizeof(glm::vec3), glm::value_ptr(camera.getPosition()));
+        // glBufferSubData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::mat4) + sizeof(glm::vec3), sizeof(float), &near);
+        // glBufferSubData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::mat4) + sizeof(glm::vec3) + sizeof(float), sizeof(float), &far);
+        // glUniformBlockBinding(grid_shader.m_Id, block_index, 0);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
+
+
+
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 

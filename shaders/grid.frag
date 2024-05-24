@@ -2,15 +2,21 @@
 
 out vec4 o_FragColor;
 
-uniform float u_Near;
-uniform float u_Far;
-uniform mat4 u_View;
-uniform mat4 u_Projection;
-uniform vec3 u_CameraPos;
 
 in vec3 plane_axes;
 in vec3 local_pos;
 in vec3 grid_size;
+
+
+layout (std140, binding = 0) uniform Properties
+{
+    mat4 view;
+    mat4 viewInverse;
+    mat4 projection;
+    vec3 position;
+    float near;
+    float far;
+} properties;
 
 float steps[] = {0.001f, 0.01f, 0.1f, 1.0f, 10.0f, 100.0f, 1000.0f, 10000.0f};
 
@@ -43,16 +49,16 @@ vec3 get_axes(vec3 co, vec3 fwidthCos, float line_size)
 
 float compute_depth(vec3 pos)
 {
-    vec4 clip_space_pos = u_Projection * u_View * vec4(pos.xyz, 1.0);
+    vec4 clip_space_pos = properties.projection * properties.view * vec4(pos.xyz, 1.0);
     return (clip_space_pos.z / clip_space_pos.w);
 }
 
 float compute_linear_depth(vec3 pos)
 {
-    vec4 clip_space_pos = u_Projection * u_View * vec4(pos.xyz, 1.0);
+    vec4 clip_space_pos = properties.projection * properties.view * vec4(pos.xyz, 1.0);
     float clip_space_depth = (clip_space_pos.z / clip_space_pos.w) * 2.0 - 1.0;
-    float linear_depth = (2.0 * u_Near * u_Far) / (u_Far + u_Near - clip_space_depth * (u_Far - u_Near));
-    return linear_depth / u_Far;
+    float linear_depth = (2.0 * properties.near * properties.far) / (properties.far + properties.near - clip_space_depth * (properties.far - properties.near));
+    return linear_depth / properties.far;
 }
 
 void main()
@@ -61,9 +67,9 @@ void main()
     vec3 dFdxPos = dFdx(frag_pos);
     vec3 dFdyPos = dFdy(frag_pos);
     vec3 fwidthPos = abs(dFdxPos) + abs(dFdyPos);
-    frag_pos += u_CameraPos * plane_axes;
+    frag_pos += properties.position * plane_axes;
 
-    mat4 viewInv = inverse(u_View);
+    mat4 viewInv = properties.viewInverse;
 
     float linear_depth = compute_linear_depth(frag_pos);
     float fading = max(0, (0.5 - linear_depth));
@@ -137,7 +143,7 @@ void main()
     fade = 1.0 - smoothstep(0.0, 0.5, dist - 0.5);
     dist = 1.0;
 
-    vec3 V = u_CameraPos - frag_pos;
+    vec3 V = properties.position - frag_pos;
     dist = length(V);
     V /= dist;
 

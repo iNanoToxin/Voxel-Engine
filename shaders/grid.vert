@@ -1,10 +1,15 @@
 #version 430 core
 
 layout (location = 0) in vec4 a_Pos;
-
-uniform mat4 u_View;
-uniform mat4 u_Projection;
-uniform vec3 u_CameraPos;
+layout (std140, binding = 0) uniform Properties
+{
+    mat4 view;
+    mat4 viewInverse;
+    mat4 projection;
+    vec3 position;
+    float near;
+    float far;
+} properties;
 
 out vec3 local_pos;
 out vec3 plane_axes;
@@ -16,7 +21,7 @@ void main()
     plane_axes = vec3(1, 1, 0);
     grid_size = vec3(5, 5, 5);
 
-    vec3 real_pos = u_CameraPos * plane_axes + local_pos * grid_size;
+    vec3 real_pos = properties.position * plane_axes + local_pos * grid_size;
 
-    gl_Position = u_Projection * u_View * vec4(real_pos, 1.0);
+    gl_Position = properties.projection * properties.view * vec4(real_pos, 1.0);
 }

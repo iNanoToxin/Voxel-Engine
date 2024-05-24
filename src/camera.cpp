@@ -63,6 +63,11 @@ namespace VoxelEngine
     {
         f32 speed = m_Window->getDeltaTime() * 10.0f * (glm::abs(m_Position.y) / 10.0f);
 
+        if (speed < 0.01f)
+        {
+            speed = 0.01f;
+        }
+
         if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_W) == GLFW_PRESS)
         {
             m_Position += m_Front * speed;
