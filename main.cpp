@@ -8,6 +8,10 @@
 #include "imgui_impl_opengl3.h"
 
 
+#include "rendering/vao.h";
+#include "rendering/buffer_object.h";
+
+
 int main()
 {
     VoxelEngine::Window window(2560 / 2, 1440 / 2, "Voxel Engine", true);
@@ -25,7 +29,8 @@ int main()
     // VoxelEngine::Shader grid_shader2(grid_vertex_path2, grid_fragment_path2);
 
     std::vector<glm::mat4> mat;
-    u32 vao, vbo, ibo;
+    VoxelEngine::Vao cube_vao;
+    VoxelEngine::Vbo cube_vbo, cube_ibo;
     {
         float vertices[216] = {
             // back face (CCW winding)
@@ -74,35 +79,21 @@ int main()
 
         glm::mat4 model(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-
         mat.push_back(model);
 
-        glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
 
-        glGenBuffers(1, &vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        cube_vbo.data(cube_vao, sizeof(vertices), vertices);
+        cube_vao.link(cube_vbo, 6 * sizeof(float));
+        cube_vao.addAttribute(3, GL_FLOAT);
+        cube_vao.addAttribute(3, GL_FLOAT);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
-        glEnableVertexAttribArray(0);
 
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-
-        glGenBuffers(1, &ibo);
-        glBindBuffer(GL_ARRAY_BUFFER, ibo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * mat.size(), mat.data(), GL_STATIC_DRAW);
-
-        glEnableVertexAttribArray(2);
-        glEnableVertexAttribArray(3);
-        glEnableVertexAttribArray(4);
-        glEnableVertexAttribArray(5);
-
-        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), nullptr);
-        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(1 * sizeof(glm::vec4)));
-        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(2 * sizeof(glm::vec4)));
-        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(3 * sizeof(glm::vec4)));
+        cube_ibo.data(cube_vao, sizeof(glm::mat4) * mat.size(), mat.data());
+        cube_vao.link(cube_ibo, sizeof(glm::mat4));
+        cube_vao.addAttribute(4, GL_FLOAT);
+        cube_vao.addAttribute(4, GL_FLOAT);
+        cube_vao.addAttribute(4, GL_FLOAT);
+        cube_vao.addAttribute(4, GL_FLOAT);
 
         glVertexAttribDivisor(2, 1);
         glVertexAttribDivisor(3, 1);
@@ -130,24 +121,17 @@ int main()
         2, 3, 0
     };
 
-    unsigned int VBO, VAO, EBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
+    VoxelEngine::Vao grid_vao;
+    VoxelEngine::Vbo grid_vbo;
+    VoxelEngine::Ebo grid_ebo;
 
-    glBindVertexArray(VAO);
+    grid_vbo.data(grid_vao, sizeof(vertices), vertices);
+    grid_ebo.data(grid_vao, sizeof(indices), indices);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    grid_vao.link(grid_vbo, 3 * sizeof(float));
+    grid_vao.addAttribute(3, GL_FLOAT);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
 
 
 
@@ -215,7 +199,7 @@ int main()
             // glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * mat.size(), mat.data(), GL_STATIC_DRAW);
 
             // glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-            glBindVertexArray(vao);
+            cube_vao.bind();
             glDrawArraysInstanced(GL_TRIANGLES, 0, 36, mat.size());
         }
 
@@ -244,8 +228,7 @@ int main()
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
 
 
-
-        glBindVertexArray(VAO);
+        grid_vao.bind();
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
 
