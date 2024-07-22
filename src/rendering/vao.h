@@ -1,5 +1,5 @@
-#ifndef VOXELENGINE_VAO_H
-#define VOXELENGINE_VAO_H
+#ifndef VOXEL_ENGINE_VAO_H
+#define VOXEL_ENGINE_VAO_H
 
 #include "glad/glad.h"
 #include "utilities/types.h"

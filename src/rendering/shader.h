@@ -1,5 +1,5 @@
-#ifndef VOXELENGINE_SHADER_H
-#define VOXELENGINE_SHADER_H
+#ifndef VOXEL_ENGINE_SHADER_H
+#define VOXEL_ENGINE_SHADER_H
 
 #include <string>
 #include <glad/glad.h>
@@ -29,9 +29,13 @@ namespace VoxelEngine
         {
             glUniform3fv(getUniformLocation(p_Uniform), 1, glm::value_ptr(p_Vec3));
         }
-        void setFloat(const char* p_Uniform, float p_Float)
+        void setFloat(const char* p_Uniform, const float p_Float)
         {
             glUniform1f(getUniformLocation(p_Uniform), p_Float);
+        }
+        void setInt(const char* p_Uniform, const int p_Int) const
+        {
+            glUniform1i(getUniformLocation(p_Uniform), p_Int);
         }
     };
 }

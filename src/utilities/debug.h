@@ -1,5 +1,5 @@
-#ifndef VOXELENGINE_DEBUG_H
-#define VOXELENGINE_DEBUG_H
+#ifndef VOXEL_ENGINE_DEBUG_H
+#define VOXEL_ENGINE_DEBUG_H
 
 #include "utilities/types.h"
 #include "glad/glad.h"

@@ -1,5 +1,5 @@
-#ifndef VOXELENGINE_WINDOW_H
-#define VOXELENGINE_WINDOW_H
+#ifndef VOXEL_ENGINE_WINDOW_H
+#define VOXEL_ENGINE_WINDOW_H
 
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
@@ -28,10 +28,7 @@ namespace VoxelEngine
         [[nodiscard]] bool shouldClose();
         [[nodiscard]] f64 getDeltaTime() const;
         [[nodiscard]] f64 getFps() const;
-        [[nodiscard]] GLFWwindow* getWindow()
-        {
-            return m_Window;
-        }
+        [[nodiscard]] GLFWwindow* getWindow() const;
     };
 }
 #endif

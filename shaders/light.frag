@@ -10,7 +10,7 @@ struct Light {
 
 struct Material {
     vec3 ambient;
-    sampler2D diffuse;
+    vec3 diffuse;
     vec3 specular;
     float shininess;
 };
@@ -18,7 +18,6 @@ struct Material {
 
 in vec3 o_Normal;
 in vec3 o_FragPos;
-in vec2 o_TexCoord;
 
 uniform vec3 u_ViewPos;
 uniform Material u_Material;
@@ -34,11 +33,8 @@ void main()
     float diff = max(dot(norm, lightDir), 0.0);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), u_Material.shininess);
 
-    diff = max(diff, 0.5);
-
-//    vec3 ambient = u_Light.ambient * u_Material.ambient;
-    vec3 ambient = vec3(0.0);
-    vec3 diffuse = u_Light.diffuse * texture(u_Material.diffuse, o_TexCoord).rgb * diff;
+    vec3 ambient = u_Light.ambient * u_Material.ambient;
+    vec3 diffuse = u_Light.diffuse * u_Material.diffuse * diff;
     vec3 specular = u_Light.specular * u_Material.specular * spec;
     vec3 result = ambient + diffuse + specular;
 

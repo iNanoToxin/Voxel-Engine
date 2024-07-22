@@ -1,5 +1,5 @@
-#ifndef VOXELENGINE_TYPES_H
-#define VOXELENGINE_TYPES_H
+#ifndef VOXEL_ENGINE_TYPES_H
+#define VOXEL_ENGINE_TYPES_H
 
 typedef unsigned char u8;
 typedef unsigned short u16;

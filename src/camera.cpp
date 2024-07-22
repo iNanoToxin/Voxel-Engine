@@ -61,13 +61,12 @@ namespace VoxelEngine
 
     void Camera::updatePosition()
     {
-        f32 speed = m_Window->getDeltaTime() * 10.0f * (glm::abs(m_Position.y) / 10.0f);
+        f32 speed = m_Window->getDeltaTime() * 10.0f;
 
-        if (speed < 0.01f)
+        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         {
-            speed = 0.01f;
+            speed *= 0.1;
         }
-
         if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_W) == GLFW_PRESS)
         {
             m_Position += m_Front * speed;
@@ -167,6 +166,11 @@ namespace VoxelEngine
     glm::mat4 Camera::getViewMatrix() const
     {
         return glm::lookAt(m_Position, m_Position + m_Front, glm::vec3(0.0f, 1.0f, 0.0f));
+    }
+
+    glm::mat4 Camera::getInverseViewMatrix() const
+    {
+        return glm::inverse(glm::lookAt(m_Position, m_Position + m_Front, glm::vec3(0.0f, 1.0f, 0.0f)));
     }
 
     glm::mat4 Camera::getProjectionMatrix() const

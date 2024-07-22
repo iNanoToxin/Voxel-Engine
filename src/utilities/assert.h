@@ -1,5 +1,5 @@
-#ifndef VOXELENGINE_ASSERT_H
-#define VOXELENGINE_ASSERT_H
+#ifndef VOXEL_ENGINE_ASSERT_H
+#define VOXEL_ENGINE_ASSERT_H
 
 #include "types.h"
 

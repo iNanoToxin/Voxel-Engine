@@ -63,7 +63,7 @@ namespace VoxelEngine
     {
         VE_assert(p_Uniform != nullptr, "Uniform name is nullptr.");
         i32 location = glGetUniformLocation(m_Id, p_Uniform);
-        // VE_assert(location >= 0, "Uniform location is non-existant.", p_Uniform);
+        // VE_assert(location >= 0, "Uniform location is non-existent.", p_Uniform);
         return location;
     }
 

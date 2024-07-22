@@ -1,5 +1,5 @@
-#ifndef VOXELENGINE_CAMERA_H
-#define VOXELENGINE_CAMERA_H
+#ifndef VOXEL_ENGINE_CAMERA_H
+#define VOXEL_ENGINE_CAMERA_H
 
 #include "window.h"
 #include "glm/glm.hpp"
@@ -8,15 +8,16 @@ namespace VoxelEngine
 {
     class Camera
     {
-    private:
+    // private:
+    public:
         static Camera* m_CurrentCamera;
         Window* m_Window = nullptr;
         f64 m_LastX = 0.0f;
         f64 m_LastY = 0.0f;
 
         f32 m_Fov = 45.0f;
-        f64 m_Yaw = -90.0f;
-        f64 m_Pitch = 0.0f;
+        // f32 m_Yaw = -90.0f;
+        // f32 m_Pitch = 0.0f;
         f32 m_Near = 0.01f;
         f32 m_Far = 500000.0f;
         bool m_IsCaptured = false;
@@ -31,6 +32,9 @@ namespace VoxelEngine
         void updateVectors();
     public:
         glm::vec3 m_Position{0.0f, 0.0f, 0.0f};
+        f32 m_Yaw = -90.0f;
+        f32 m_Pitch = 0.0f;
+
         explicit Camera(Window* p_Window);
 
         void lookAt(const glm::vec3& p_Position);
@@ -42,6 +46,7 @@ namespace VoxelEngine
         void forward(const f32& p_Step);
         void setPosition(const glm::vec3& p_Position);
 
+        [[nodiscard]] glm::mat4 getInverseViewMatrix() const;
         [[nodiscard]] glm::mat4 getViewMatrix() const;
         [[nodiscard]] glm::mat4 getProjectionMatrix() const;
         [[nodiscard]] glm::vec3 getPosition() const;

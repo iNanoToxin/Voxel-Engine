@@ -5,7 +5,7 @@ void framebuffer_size_callback(GLFWwindow* p_Window, i32 p_Width, i32 p_Height)
     glViewport(0, 0, p_Width, p_Height);
 }
 
-VoxelEngine::Window::Window(u16 p_Width, u16 p_Height, const char* p_Title, bool p_FullScreen)
+VoxelEngine::Window::Window(const u16 p_Width, const u16 p_Height, const char* p_Title, const bool p_FullScreen)
 {
     VE_assert(p_Width != 0, "Screen width cannot be zero.");
     VE_assert(p_Height != 0, "Screen height cannot be zero.");
@@ -35,7 +35,7 @@ VoxelEngine::Window::Window(u16 p_Width, u16 p_Height, const char* p_Title, bool
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // glEnable(GL_CULL_FACE);
+    glEnable(GL_CULL_FACE);
 
     glViewport(0, 0, p_Width, p_Height);
 
@@ -66,7 +66,7 @@ bool VoxelEngine::Window::shouldClose()
     return glfwWindowShouldClose(m_Window);
 }
 
-void VoxelEngine::Window::clear(u8 p_R, u8 p_G, u8 p_B, f32 p_A)
+void VoxelEngine::Window::clear(const u8 p_R, const u8 p_G, const u8 p_B, const f32 p_A)
 {
     f64 current_frame = glfwGetTime();
     m_DeltaTime = current_frame - m_LastFrame;
@@ -90,4 +90,9 @@ f64 VoxelEngine::Window::getDeltaTime() const
 f64 VoxelEngine::Window::getFps() const
 {
     return 1.0f / m_DeltaTime;
+}
+
+GLFWwindow* VoxelEngine::Window::getWindow() const
+{
+    return m_Window;
 }
