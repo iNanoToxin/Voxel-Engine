@@ -1,267 +1,141 @@
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <iostream>
-#include <unordered_map>
+#include <glm/ext/matrix_transform.hpp>
 #include "camera.h"
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
 #include "window.h"
+#include "common/constants.h"
+#include "game/data/world_data.h"
 #include "rendering/grid_overlay.h"
 #include "rendering/shader.h"
-#include "rendering/vao.h"
-
+#include "rendering/skybox.h"
+#include "rendering/gl/cube_map_array.h"
+#include "rendering/gl/vertex_array.h"
+#include "rendering/gl/vertex_buffer.h"
 #include "utilities/json.h"
-#include "utilities/PerlinNoise.hpp"
 
-#define GET_DATA(PATH) DATA_PATH PATH
-#define GET_SHADER(PATH) SHADERS_PATH PATH
-#define GET_TEXTURE(PATH) TEXTURES_PATH PATH
-#define CHUNK_SIZE 32
+#include "utilities/FastNoiseLite.h"
+#include "game/chunk.h"
+
 
 using nlohmann::json;
 
-constexpr siv::PerlinNoise::seed_type seed = 123456u;
-const siv::PerlinNoise perlin(seed);
-
-
-enum class BlockType : u8
+void insert_voxels(std::vector<block>& _data, const std::vector<block>& _blocks)
 {
-
-};
-
-struct BlockData
-{
-    u8 blockType;
-    u8 lightLevel;
-};
-
-
-class Chunk
-{
-    //  data[-----X----][-----Z----][-----Y----]
-    int data[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE] = {};
-    glm::ivec3 m_Position;
-public:
-    explicit Chunk(const glm::ivec3& p_Position) : m_Position(p_Position) {}
-
-    void generate(std::vector<glm::mat4>& mat) const
+    for (uint32_t i = 0; i < _blocks.size(); i++)
     {
-        for (int x = 0; x < CHUNK_SIZE; x++)
-        {
-            for (int z = 0; z < CHUNK_SIZE; z++)
-            {
-                for (int y = 0; y < CHUNK_SIZE; y++)
-                {
-                    const int world_x = m_Position.x * CHUNK_SIZE + x;
-                    const int world_y = m_Position.y * CHUNK_SIZE + y;
-                    const int world_z = m_Position.z * CHUNK_SIZE + z;
-
-                    // double noise = perlin.octave2D_01(world_x * 0.01, world_z * 0.01, 4);
-                    // noise *= 25;
-                    // noise = glm::floor(noise);
-                    double noise = 32.0f;
-
-                    if (world_y <= noise) mat.push_back(glm::translate(glm::mat4(1.0f), glm::vec3(world_x, world_y, world_z) + glm::vec3(0.5)));
-                }
-            }
-        }
+        _data.push_back(_blocks[i]);
     }
-};
-
-class ChunkManager
-{
-private:
-    struct ivec3_hash
-    {
-        std::size_t operator()(const glm::ivec3 &in) const
-        {
-            std::size_t seed = 0;
-            std::hash<int> hasher;
-            seed ^= hasher(in.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            seed ^= hasher(in.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            seed ^= hasher(in.z) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            return seed;
-        }
-    };
-
-
-    std::unordered_map<glm::ivec3, Chunk, ivec3_hash> chunks;
-
-    void _create_chunk_at_chunk_position(const glm::ivec3& position, std::vector<glm::mat4>& mat)
-    {
-        Chunk chunk(position);
-        chunk.generate(mat);
-        chunks.emplace(position, chunk);
-    }
-
-    void _load_chunk_at_chunk_position(const glm::ivec3& position, std::vector<glm::mat4>& mat)
-    {
-        if (!chunks.contains(position))
-        {
-            _create_chunk_at_chunk_position(position, mat);
-        }
-    }
-
-    void _load_chunk_at_world_position(const glm::vec3& position, std::vector<glm::mat4>& mat)
-    {
-        const int chunk_x = glm::floor(position.x / CHUNK_SIZE);
-        const int chunk_y = glm::floor(position.y / CHUNK_SIZE);
-        const int chunk_z = glm::floor(position.z / CHUNK_SIZE);
-        _load_chunk_at_chunk_position(glm::ivec3(chunk_x, chunk_y, chunk_z), mat);
-    }
-public:
-    void loadChunk(const glm::vec3& position, std::vector<glm::mat4>& mat)
-    {
-        _load_chunk_at_world_position(position, mat);
-    }
-
-    void loadChunk(const glm::ivec3& position, std::vector<glm::mat4>& mat)
-    {
-        _load_chunk_at_chunk_position(position, mat);
-    }
-};
-
+}
 
 int main()
 {
-    VoxelEngine::Window window(2560 / 2, 1440 / 2, "Voxel Engine", true);
+    voxel_engine::window window(2560 / 2, 1440 / 2, "Voxel Engine", true);
+    voxel_engine::camera camera(window);
+    voxel_engine::grid_overlay grid_overlay;
 
-    VoxelEngine::Shader shader(GET_SHADER("shader.vert"), GET_SHADER("shader.frag"));
-    VoxelEngine::Camera camera(&window);
-    VoxelEngine::GridOverlay grid_overlay;
+    voxel_engine::world_data world_data(GET_DATA("world_data.json"));
+    voxel_engine::skybox skybox(
+        {
+            GET_TEXTURE("skybox/right.jpg"),
+            GET_TEXTURE("skybox/left.jpg"),
+            GET_TEXTURE("skybox/top.jpg"),
+            GET_TEXTURE("skybox/bottom.jpg"),
+            GET_TEXTURE("skybox/front.jpg"),
+            GET_TEXTURE("skybox/back.jpg")
+        }
+    );
 
-    std::vector<glm::mat4> mat;
-    VoxelEngine::Vao cube_vao;
-    VoxelEngine::Vbo cube_vbo, cube_ibo;
-    {
-        // @formatter:off
-        float vertices[288] = {
-            // position[3], normal[3], tex_coord[2]
-            // back face (CCW winding)
-            0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,    // bottom-left
-           -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f,    // bottom-right
-           -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,    // top-right
-           -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,    // top-right
-            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f,    // top-left
-            0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,    // bottom-left
-            // front face (CCW winding)
-           -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f,    // bottom-left
-            0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,    // bottom-right
-            0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f,    // top-right
-            0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f,    // top-right
-           -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,    // top-left
-           -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f,    // bottom-left
-            // left face (CCW)
-           -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f,    // bottom-left
-           -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,    // bottom-right
-           -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f,    // top-right
-           -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f,    // top-right
-           -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,    // top-left
-           -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f,    // bottom-left
-            // right face (CCW)
-            0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,    // bottom-left
-            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f,    // bottom-right
-            0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,    // top-right
-            0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,    // top-right
-            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f,    // top-left
-            0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,    // bottom-left
-            // bottom face (CCW)
-           -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,    // bottom-left
-            0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,    // bottom-right
-            0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f,    // top-right
-            0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f,    // top-right
-           -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f,    // top-left
-           -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,    // bottom-left
-            // top face (CCW)
-           -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,    // bottom-left
-            0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,    // bottom-right
-            0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,    // top-right
-            0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,    // top-right
-           -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f,    // top-left
-           -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,    // bottom-left
-        };
-        // @formatter:on
-
-        cube_vbo.data(cube_vao, sizeof(vertices), vertices);
-        cube_vao.link(cube_vbo, 8 * sizeof(float));
-        cube_vao.addAttribute(3, GL_FLOAT);
-        cube_vao.addAttribute(3, GL_FLOAT);
-        cube_vao.addAttribute(2, GL_FLOAT);
-
-
-        cube_ibo.data(cube_vao, sizeof(glm::mat4) * mat.size(), mat.data());
-        cube_vao.link(cube_ibo, sizeof(glm::mat4));
-        cube_vao.addAttribute(4, GL_FLOAT);
-        cube_vao.addAttribute(4, GL_FLOAT);
-        cube_vao.addAttribute(4, GL_FLOAT);
-        cube_vao.addAttribute(4, GL_FLOAT);
-
-        glVertexAttribDivisor(3, 1);
-        glVertexAttribDivisor(4, 1);
-        glVertexAttribDivisor(5, 1);
-        glVertexAttribDivisor(6, 1);
-    }
-
-    json data = json::parse(VoxelEngine::Util::read_file(GET_DATA("world_data.txt")));
-
-    if (data["camera_position"] != nullptr && data["camera_front"] != nullptr)
-    {
-        glm::vec3 camera_position = glm::vec3(data["camera_position"]["x"], data["camera_position"]["y"], data["camera_position"]["z"]);
-        glm::vec3 camera_front = glm::vec3(data["camera_front"]["x"], data["camera_front"]["y"], data["camera_front"]["z"]);
-
-        camera.setPosition(camera_position);
-        camera.lookAt(camera_position + camera_front);
-    }
-
-
-
-
-    ChunkManager chunk_manager;
-
-
-
-    unsigned int texture = VoxelEngine::Util::load_texture(GET_TEXTURE("smooth_stone.png"));
-
-
+    camera.position = world_data.get_vec3("camera_position");
+    camera.look_at(camera.position + world_data.get_vec3("camera_front"));
 
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window.getWindow(), true);
+    ImGui_ImplGlfw_InitForOpenGL(window.get_window(), true);
     ImGui_ImplOpenGL3_Init("#version 430");
 
     ImGuiIO* io = &ImGui::GetIO();
     io->AddMouseButtonEvent(GLFW_MOUSE_BUTTON_1, true);
 
+    std::vector<block> voxel_data;
 
 
+    voxel_engine::shader voxel_shader(GET_SHADER("voxel.vert"), GET_SHADER("voxel.frag"));
+
+    voxel_engine::vertex_array vertex_array;
+    voxel_engine::vertex_buffer vertex_buffer(GL_ARRAY_BUFFER);
+
+    vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);
+    // each attribute represents a vec4 of mat4
+    vertex_array.set_stride(sizeof(block));
 
 
-    while (!window.shouldClose())
+    vertex_array.add_attribute_float32(0, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
+    vertex_array.add_attribute_float32(1, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
+    vertex_array.add_attribute_float32(2, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
+    vertex_array.add_attribute_float32(3, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
+    // updates each vec4 of the mat4 each instance
+    vertex_array.update_attribute_per_instance(0, 1);
+    vertex_array.update_attribute_per_instance(1, 1);
+    vertex_array.update_attribute_per_instance(2, 1);
+    vertex_array.update_attribute_per_instance(3, 1);
+
+    vertex_array.add_attribute_int32(4, 1, GL_INT, sizeof(int32_t));
+    vertex_array.update_attribute_per_instance(4, 1);
+
+    #pragma region INIT_VOXEL_CUBE_MAP_ARRAY
+    std::vector<std::array<std::string, 6>> block_data = json::parse(voxel_engine::util::read_file(GET_DATA("block_data.json")));
+
+    for (uint32_t i = 0; i < block_data.size(); i++)
     {
-        static bool gl_fill = (data["gl_fill"] == true);
+        for (uint32_t j = 0; j < 6; j++)
+        {
+            block_data[i][j] = TEXTURES_PATH + block_data[i][j];
+        }
+    }
+
+    voxel_engine::cube_map_array cube_map_array;
+    cube_map_array.load_cube_map_array(block_data);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    #pragma endregion
+
+    for (int32_t i = 0; i <= 32; i++)
+    {
+        for (int32_t j = 0; j <= 32; j++)
+        {
+            voxel_engine::chunk chunk(glm::ivec3(i, 0, j));
+            insert_voxels(voxel_data, chunk.get_voxels_greedy());
+        }
+    }
+
+    vertex_array.bind_vertex_array();
+    vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);
+
+
+    while (!window.should_close())
+    {
+        static bool gl_fill = world_data.get<bool>("gl_fill");
 
         window.clear(20, 20, 20);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        glm::vec3 camera_position = camera.getPosition() - glm::vec3(0.0f, 32.0f, 0.0f);
-        const int chunk_x = glm::floor(camera_position.x / CHUNK_SIZE);
-        const int chunk_y = glm::floor(camera_position.y / CHUNK_SIZE);
-        const int chunk_z = glm::floor(camera_position.z / CHUNK_SIZE);
+        glm::vec3 camera_position = camera.position - glm::vec3(0.0f, 32.0f, 0.0f);
+        const int32_t chunk_x = glm::floor(camera_position.x / CHUNK_SIZE);
+        const int32_t chunk_y = glm::floor(camera_position.y / CHUNK_SIZE);
+        const int32_t chunk_z = glm::floor(camera_position.z / CHUNK_SIZE);
         glm::ivec3 chunk_position(chunk_x, chunk_y, chunk_z);
-
-        for (int x = -3; x <= 3; x++)
-        {
-            for (int z = -3; z <= 3; z++)
-            {
-                chunk_manager.loadChunk(chunk_position + glm::ivec3(x, 0, z), mat);
-            }
-        }
 
 
         #pragma region INPUT_HANDLER
-        if (!io->WantCaptureMouse && (glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS ||
-            glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS))
+        if (!io->WantCaptureMouse && (glfwGetMouseButton(window.get_window(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS ||
+            glfwGetMouseButton(window.get_window(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS))
         {
             camera.capture();
         }
@@ -269,38 +143,47 @@ int main()
         {
             camera.release();
         }
-        if (glfwGetKey(window.getWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        if (glfwGetKey(window.get_window(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
         {
-            glfwSetWindowShouldClose(window.getWindow(), true);
+            glfwSetWindowShouldClose(window.get_window(), true);
         }
-        camera.updatePosition();
+        camera.update_position();
         #pragma endregion
 
         #pragma region DRAW_CUBES
         glPolygonMode(GL_FRONT_AND_BACK, gl_fill ? GL_FILL : GL_LINE);
-        shader.use();
-        shader.setMat4("u_View", camera.getViewMatrix());
-        shader.setMat4("u_Projection", camera.getProjectionMatrix());
-        shader.setVec3("u_ViewPos", camera.getPosition());
 
-        shader.setVec3("u_Light.position", camera.getPosition() + glm::vec3(0.0f, 100.0f, 0.0f));
-        shader.setVec3("u_Light.ambient", glm::vec3(0.5f));
-        shader.setVec3("u_Light.diffuse", glm::vec3(1.0f));
-        shader.setVec3("u_Light.specular", glm::vec3(1.0f));
+        voxel_shader.use();
+        voxel_shader.set_mat4("u_View", camera.get_view_matrix());
+        voxel_shader.set_mat4("u_Projection", camera.get_projection_matrix());
+        voxel_shader.set_mat4("u_View", camera.get_view_matrix());
+        voxel_shader.set_mat4("u_Projection", camera.get_projection_matrix());
+        voxel_shader.set_vec3("u_ViewPos", camera.position);
+        voxel_shader.set_vec3("u_Light.position", camera.position + glm::vec3(0.0f, 100.0f, 0.0f));
+        voxel_shader.set_vec3("u_Light.ambient", glm::vec3(0.5f));
+        voxel_shader.set_vec3("u_Light.diffuse", glm::vec3(1.0f));
+        voxel_shader.set_vec3("u_Light.specular", glm::vec3(1.0f));
+        voxel_shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
+        voxel_shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+        voxel_shader.set_float32("u_Material.shininess", 64.0f);
+        // voxel_shader.set_int32("u_Material.diffuse", 0);
+        // glActiveTexture(GL_TEXTURE0);
+        // glBindTexture(GL_TEXTURE_2D, atlas_texture);
+        // voxel_shader.set_i32("u_TextureArray", texture_array);
+        voxel_shader.set_int32("u_Texture", 0);
+        cube_map_array.set_active_texture(GL_TEXTURE0);
 
-        shader.setVec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
-        // shader.setVec3("u_Material.diffuse", glm::vec3(1.0f, 0.3f, 0.3f));
-        shader.setVec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
-        shader.setFloat("u_Material.shininess", 64.0f);
+        // voxel_data[0].transform = glm::translate(glm::mat4(1.0), glm::vec3(0.0, glm::sin(glfwGetTime()), 0.0));
+        // voxel_data[1].block_type = static_cast<uint32_t>(glfwGetTime() * 30) % 3;
 
-        shader.setInt("u_Material.diffuse", 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
-
-        cube_ibo.data(cube_vao, sizeof(glm::mat4) * mat.size(), mat.data());
-        cube_vao.bind();
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 36, mat.size());
+        vertex_array.bind_vertex_array();
+        // vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);
+        vertex_array.draw_arrays_instanced(GL_TRIANGLES, 0, 36, voxel_data.size());
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         #pragma endregion
+
+        skybox.render(camera);
+        grid_overlay.render(camera);
 
         #pragma region IMGUI
         ImGui_ImplOpenGL3_NewFrame();
@@ -314,12 +197,12 @@ int main()
             static ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg |
                 ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable;
 
-            glm::vec3 camera_position = camera.getPosition();
+            glm::vec3 camera_position = camera.position;
 
             if (ImGui::BeginTable("Data", 3, flags))
             {
                 double x_position, y_position;
-                glfwGetCursorPos(window.getWindow(), &x_position, &y_position);
+                glfwGetCursorPos(window.get_window(), &x_position, &y_position);
 
                 ImGui::TableSetupColumn("Info", ImGuiTableColumnFlags_WidthFixed);
                 ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed);
@@ -331,9 +214,9 @@ int main()
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Camera Position");
                 ImGui::TableSetColumnIndex(1);
-                float column_width = ImGui::GetContentRegionAvail().x;
+                float32_t column_width = ImGui::GetContentRegionAvail().x;
                 ImGui::PushItemWidth(column_width);
-                ImGui::DragFloat3("##camera_pos", &camera.m_Position[0], 1.0f, 0.0f, 0.0f, "%.03f");
+                ImGui::DragFloat3("##camera_pos", &camera.position[0], 1.0f, 0.0f, 0.0f, "%.03f");
                 ImGui::PopItemWidth();
                 ImGui::TableSetColumnIndex(2);
                 if (ImGui::Button("Copy"))
@@ -343,7 +226,7 @@ int main()
                     pos << std::to_string(camera_position.x) << ", ";
                     pos << std::to_string(camera_position.y) << ", ";
                     pos << std::to_string(camera_position.z) << ")";
-                    glfwSetClipboardString(window.getWindow(), pos.str().c_str());
+                    glfwSetClipboardString(window.get_window(), pos.str().c_str());
                 }
                 ImGui::PopID();
 
@@ -354,21 +237,21 @@ int main()
                 ImGui::TableSetColumnIndex(1);
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, ImGui::GetStyle().ItemSpacing.y));
                 column_width = ImGui::GetContentRegionAvail().x;
-                float item_spacing = ImGui::GetStyle().ItemSpacing.x;
-                float item_width = (column_width - item_spacing) / 2;
+                float32_t item_spacing = ImGui::GetStyle().ItemSpacing.x;
+                float32_t item_width = (column_width - item_spacing) / 2;
                 ImGui::PushItemWidth(item_width);
-                if (ImGui::DragFloat("##camera_yaw", &camera.m_Yaw, 0.1f, 0.0f, 0.0f, "%.03f"))
+                if (ImGui::DragFloat("##camera_yaw", &camera.yaw, 0.1f, 0.0f, 0.0f, "%.03f"))
                 {
-                    camera.contrainAngles();
-                    camera.updateVectors();
+                    camera.contrain_angles();
+                    camera.update_vectors();
                 }
                 ImGui::PopItemWidth();
                 ImGui::SameLine();
                 ImGui::PushItemWidth(item_width);
-                if (ImGui::DragFloat("##camera_pitch", &camera.m_Pitch, 0.1f, -89.99f, 89.99f, "%.03f"))
+                if (ImGui::DragFloat("##camera_pitch", &camera.pitch, 0.1f, -89.0f, 89.0f, "%.03f"))
                 {
-                    camera.contrainAngles();
-                    camera.updateVectors();
+                    camera.contrain_angles();
+                    camera.update_vectors();
                 }
                 ImGui::PopItemWidth();
                 ImGui::PopStyleVar();
@@ -377,13 +260,33 @@ int main()
                 {
                     std::stringstream pos;
                     pos << "glm::vec2(";
-                    pos << std::to_string(camera.m_Yaw) << ", ";
-                    pos << std::to_string(camera.m_Pitch) << ")";
-                    glfwSetClipboardString(window.getWindow(), pos.str().c_str());
+                    pos << std::to_string(camera.yaw) << ", ";
+                    pos << std::to_string(camera.pitch) << ")";
+                    glfwSetClipboardString(window.get_window(), pos.str().c_str());
                 }
                 ImGui::PopID();
 
                 ImGui::PushID(2);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Look Direction");
+                ImGui::TableSetColumnIndex(1);
+                // ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
+                ImGui::Text("%.3f, %.3f, %.3f", camera.front.x, camera.front.y, camera.front.z);
+                // ImGui::PopStyleColor();
+                ImGui::TableSetColumnIndex(2);
+                if (ImGui::Button("Copy"))
+                {
+                    std::stringstream pos;
+                    pos << "glm::vec3(";
+                    pos << std::to_string(camera.front.x) << ", ";
+                    pos << std::to_string(camera.front.y) << ", ";
+                    pos << std::to_string(camera.front.z) << ")";
+                    glfwSetClipboardString(window.get_window(), pos.str().c_str());
+                }
+                ImGui::PopID();
+
+                ImGui::PushID(3);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Mouse Position");
@@ -398,11 +301,11 @@ int main()
                     pos << "glm::vec2(";
                     pos << std::to_string(x_position) << ", ";
                     pos << std::to_string(y_position) << ")";
-                    glfwSetClipboardString(window.getWindow(), pos.str().c_str());
+                    glfwSetClipboardString(window.get_window(), pos.str().c_str());
                 }
                 ImGui::PopID();
 
-                ImGui::PushID(3);
+                ImGui::PushID(4);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("App Info");
@@ -424,9 +327,9 @@ int main()
                 ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed);
                 ImGui::TableHeadersRow();
 
-                int x = glm::floor(camera_position.x / CHUNK_SIZE);
-                int y = glm::floor(camera_position.y / CHUNK_SIZE);
-                int z = glm::floor(camera_position.z / CHUNK_SIZE);
+                int32_t x = glm::floor(camera_position.x / CHUNK_SIZE);
+                int32_t y = glm::floor(camera_position.y / CHUNK_SIZE);
+                int32_t z = glm::floor(camera_position.z / CHUNK_SIZE);
                 ImGui::PushID(0);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -440,7 +343,7 @@ int main()
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Voxel Count");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%i", mat.size());
+                ImGui::Text("%i", voxel_data.size());
                 ImGui::PopID();
 
                 ImGui::PushID(2);
@@ -448,7 +351,15 @@ int main()
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Triangle Count");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%i", mat.size() * 12);
+                ImGui::Text("%i", voxel_data.size() * 12);
+                ImGui::PopID();
+
+                ImGui::PushID(3);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Clear Voxels");
+                ImGui::TableSetColumnIndex(1);
+                if (ImGui::Button("Clear")) {}
                 ImGui::PopID();
             }
             ImGui::EndTable();
@@ -461,18 +372,10 @@ int main()
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         #pragma endregion
 
-        #pragma region SAVE_DATA
-        data["camera_position"]["x"] = camera.getPosition().x;
-        data["camera_position"]["y"] = camera.getPosition().y;
-        data["camera_position"]["z"] = camera.getPosition().z;
-        data["camera_front"]["x"] = camera.getFront().x;
-        data["camera_front"]["y"] = camera.getFront().y;
-        data["camera_front"]["z"] = camera.getFront().z;
-        data["gl_fill"] = gl_fill;
-        VoxelEngine::Util::write_file(GET_DATA("world_data.txt"), data.dump(4));
-        #pragma endregion
-
-        grid_overlay.draw(camera);
+        world_data.set_vec3("camera_position", camera.position);
+        world_data.set_vec3("camera_front", camera.front);
+        world_data.set("gl_fill", gl_fill);
+        world_data.save();
         window.swap();
     }
     return 0;

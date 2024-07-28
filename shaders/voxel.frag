@@ -18,11 +18,26 @@ struct Material {
 
 in vec3 o_Normal;
 in vec3 o_FragPos;
-in vec2 o_TexCoord;
+in vec3 o_TexCoord;
+flat in ivec3 o_Scale;
+flat in int o_TexIndex;
+flat in int o_VertexId;
 
 uniform vec3 u_ViewPos;
 uniform Material u_Material;
 uniform Light u_Light;
+uniform samplerCubeArray u_Texture;
+
+float scale(float coord, float scale)
+{
+    coord = coord + 0.5;
+
+    if (coord == 0.0 || coord == 1.0)
+    {
+        return coord - 0.5;
+    }
+    return mod(coord * scale, 1.0) - 0.5;
+}
 
 void main()
 {
@@ -36,9 +51,15 @@ void main()
 
     diff = max(diff, 0.5);
 
+    vec3 tex_coord = o_TexCoord;
+    tex_coord.x = scale(tex_coord.x, o_Scale.x);
+    tex_coord.y = scale(tex_coord.y, o_Scale.y);
+    tex_coord.z = scale(tex_coord.z, o_Scale.z);
+
+
 //    vec3 ambient = u_Light.ambient * u_Material.ambient;
     vec3 ambient = vec3(0.0);
-    vec3 diffuse = u_Light.diffuse * texture(u_Material.diffuse, o_TexCoord).rgb * diff;
+    vec3 diffuse = u_Light.diffuse * texture(u_Texture, vec4(tex_coord, o_TexIndex)).rgb * diff;
     vec3 specular = u_Light.specular * u_Material.specular * spec;
     vec3 result = ambient + diffuse + specular;
 

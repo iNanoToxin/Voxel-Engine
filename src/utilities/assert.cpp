@@ -2,35 +2,48 @@
 #include <sstream>
 #include <iostream>
 
-void VoxelEngine::assert_condition(i32 p_Line, const char* p_File, const char* p_Condition, bool p_Success, const char* p_Message, const char* p_Identifier)
+void voxel_engine::assert_condition(
+    const int32_t _line,
+    const char* _file,
+    const char* _condition,
+    const bool _success,
+    const char* _message,
+    const char* _identifier
+)
 {
-    if (p_Success) return;
+    if (_success) return;
 
     std::stringstream stream;
-    stream << "Assertion Failed: `" << p_Condition << "`" << "\n";
-    if (p_Identifier != nullptr)
+    stream << "Assertion Failed: `" << _condition << "`" << "\n";
+    if (_identifier != nullptr)
     {
-        stream << "    " << "Identifier: " << p_Identifier << "\n";
+        stream << "    " << "Identifier: " << _identifier << "\n";
     }
-    stream << "    " << "Line: " << p_Line << "\n";
-    stream << "    " << "File: " << p_File << "\n";
-    stream << "    " << "Message: " << p_Message;
+    stream << "    " << "Line: " << _line << "\n";
+    stream << "    " << "File: " << _file << "\n";
+    stream << "    " << "Message: " << _message;
 
     std::cerr << stream.rdbuf() << std::endl;
     std::exit(0);
 }
 
-void VoxelEngine::failure(i32 p_Line, const char* p_File, const char* p_Condition, const char* p_Message, const char* p_Identifier)
+void voxel_engine::failure(
+    const int32_t _line,
+    const char* _file,
+    const char* _condition,
+    const char* _message,
+    const char* _identifier
+)
 {
     std::stringstream stream;
-    stream << "Failure: " << p_Condition << "\n";
-    if (p_Identifier != nullptr)
+    stream << "Failure: " << _condition << "\n";
+    if (_identifier != nullptr)
     {
-        stream << "    " << "Identifier: " << p_Identifier << "\n";
+        stream << "    " << "Identifier: " << _identifier << "\n";
     }
-    stream << "    " << "Line: " << p_Line << "\n";
-    stream << "    " << "File: " << p_File << "\n";
-    stream << "    " << "Message: " << p_Message;
+    stream << "    " << "Line: " << _line << "\n";
+    stream << "    " << "File: " << _file << "\n";
+    stream << "    " << "Message: " << _message;
 
     std::cerr << stream.rdbuf() << std::endl;
     std::exit(0);

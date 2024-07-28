@@ -1,74 +1,101 @@
 #include <iostream>
 #include "shader.h"
+#include "utilities/util.h"
+#include "glm/gtc/type_ptr.hpp"
 
-namespace VoxelEngine
+namespace voxel_engine
 {
-    Shader::Shader(const char* p_VertexShader, const char* p_FragmentShader)
+    shader::shader(const char* _vertex_shader, const char* _fragment_shader)
     {
-        u32 vertex_shader = compileShader(p_VertexShader, GL_VERTEX_SHADER);
-        u32 fragment_shader = compileShader(p_FragmentShader, GL_FRAGMENT_SHADER);
+        const uint32_t vertex_shader = compile_shader(_vertex_shader, GL_VERTEX_SHADER);
+        const uint32_t fragment_shader = compile_shader(_fragment_shader, GL_FRAGMENT_SHADER);
 
-        m_Id = linkShader(vertex_shader, fragment_shader);
+        _id = link_shader(vertex_shader, fragment_shader);
     }
 
-    u32 Shader::compileShader(const char* p_Path, GLenum p_Type) const
+    uint32_t shader::compile_shader(const char* _path, const GLenum _type)
     {
-        std::string source = Util::read_file(p_Path);
+        const std::string source = util::read_file(_path);
         const char* code = source.c_str();
 
-        char info_log[1028];
-        i32 success;
 
-        u32 shader = glCreateShader(p_Type);
+        const uint32_t shader = glCreateShader(_type);
         glShaderSource(shader, 1, &code, nullptr);
         glCompileShader(shader);
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 
-        if (!success)
+        int32_t is_compiled;
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &is_compiled);
+
+        if (is_compiled == GL_FALSE)
         {
-            glGetShaderInfoLog(shader, 1028, nullptr, info_log);
-            VE_failure("Failed to compile shader.", info_log, p_Path);
+            int32_t max_length;
+            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &max_length);
+
+            char info_log[max_length];
+            glGetShaderInfoLog(shader, max_length, nullptr, info_log);
+            VE_failure("Failed to compile shader.", info_log, _path);
         }
         return shader;
     }
 
-    u32 Shader::linkShader(u32 p_VertexShader, u32 p_FragmentShader) const
+    uint32_t shader::link_shader(const uint32_t _vertex_shader, const uint32_t _fragment_shader) const
     {
-        int success;
-        char info_log[1028];
 
-        u32 shader_id = glCreateProgram();
-        glAttachShader(shader_id, p_VertexShader);
-        glAttachShader(shader_id, p_FragmentShader);
-        glLinkProgram(shader_id);
+        const uint32_t program = glCreateProgram();
+        glAttachShader(program, _vertex_shader);
+        glAttachShader(program, _fragment_shader);
+        glLinkProgram(program);
 
-        glGetProgramiv(shader_id, GL_LINK_STATUS, &success);
-        if (!success)
+        int32_t is_linked;
+        glGetProgramiv(program, GL_LINK_STATUS, &is_linked);
+
+        if (is_linked == GL_FALSE)
         {
-            glGetProgramInfoLog(shader_id, 1028, nullptr, info_log);
-            VE_failure("Failed to link shader.", info_log, std::to_string(m_Id).c_str());
+            int32_t max_length;
+            glGetProgramiv(program, GL_INFO_LOG_LENGTH, &max_length);
+
+            char info_log[max_length];
+            glGetProgramInfoLog(program, max_length, nullptr, info_log);
+            VE_failure("Failed to link shader.", info_log, std::to_string(_id).c_str());
         }
 
-        glDeleteShader(p_VertexShader);
-        glDeleteShader(p_FragmentShader);
-        return shader_id;
+        glDetachShader(program, _vertex_shader);
+        glDetachShader(program, _fragment_shader);
+        glDeleteShader(_vertex_shader);
+        glDeleteShader(_fragment_shader);
+        return program;
     }
 
-    void Shader::use() const
+    void shader::use() const
     {
-        glUseProgram(m_Id);
+        glUseProgram(_id);
     }
 
-    u32 Shader::getUniformLocation(const char* p_Uniform) const
+    uint32_t shader::get_uniform_location(const char* _uniform) const
     {
-        VE_assert(p_Uniform != nullptr, "Uniform name is nullptr.");
-        i32 location = glGetUniformLocation(m_Id, p_Uniform);
-        // VE_assert(location >= 0, "Uniform location is non-existent.", p_Uniform);
+        VE_assert(_uniform != nullptr, "Uniform name is nullptr.");
+        const int32_t location = glGetUniformLocation(_id, _uniform);
+        // VE_assert(location >= 0, "Uniform location is non-existent.", _uniform);
         return location;
     }
 
-    void Shader::setMat4(const char* p_Uniform, glm::mat4 p_Mat4)
+    void shader::set_mat4(const char* _uniform, glm::mat4 _mat4) const
     {
-        glUniformMatrix4fv(getUniformLocation(p_Uniform), 1, GL_FALSE, glm::value_ptr(p_Mat4));
+        glUniformMatrix4fv(get_uniform_location(_uniform), 1, GL_FALSE, glm::value_ptr(_mat4));
+    }
+
+    void shader::set_vec3(const char* _uniform, glm::vec3 _vec3) const
+    {
+        glUniform3fv(get_uniform_location(_uniform), 1, glm::value_ptr(_vec3));
+    }
+
+    void shader::set_float32(const char* _uniform, const float32_t _float) const
+    {
+        glUniform1f(get_uniform_location(_uniform), _float);
+    }
+
+    void shader::set_int32(const char* _uniform, const int32_t _int) const
+    {
+        glUniform1i(get_uniform_location(_uniform), _int);
     }
 }

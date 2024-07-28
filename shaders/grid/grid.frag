@@ -178,7 +178,7 @@ void main()
         }
     }
 
-    float view_distance = 100.0f;
+    float view_distance = 1000.0f;
     bool is_persp = true;
 
     float dist, fade;

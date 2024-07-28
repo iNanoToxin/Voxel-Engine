@@ -1,34 +1,31 @@
-#ifndef VOXEL_ENGINE_WINDOW_H
-#define VOXEL_ENGINE_WINDOW_H
-
+#pragma once
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 #include "utilities/types.h"
 #include "utilities/assert.h"
 #include "utilities/debug.h"
 
-namespace VoxelEngine
+namespace voxel_engine
 {
-    class Window
+    class window
     {
     private:
-        GLFWwindow* m_Window = nullptr;
-        f64 m_DeltaTime = 0.0f;
-        f64 m_LastFrame;
+        GLFWwindow* _window = nullptr;
+        float64_t _delta_time = 0.0f;
+        float64_t _last_frame;
     public:
-        u16 width;
-        u16 height;
+        uint16_t width;
+        uint16_t height;
 
-        Window(u16 p_Width, u16 p_Height, const char* p_Title, bool p_FullScreen = false);
-        ~Window();
+        window(uint16_t _width, uint16_t _height, const char* _title, bool _full_screen = false);
+        ~window();
 
-        void clear(u8 p_R, u8 p_G, u8 p_B, f32 p_A = 0.0f);
+        void clear(uint8_t _r, uint8_t _g, uint8_t _b, float32_t _a = 0.0f);
         void swap();
 
-        [[nodiscard]] bool shouldClose();
-        [[nodiscard]] f64 getDeltaTime() const;
-        [[nodiscard]] f64 getFps() const;
-        [[nodiscard]] GLFWwindow* getWindow() const;
+        [[nodiscard]] bool should_close();
+        [[nodiscard]] float64_t get_delta_time() const;
+        [[nodiscard]] float64_t get_fps() const;
+        [[nodiscard]] GLFWwindow* get_window() const;
     };
 }
-#endif

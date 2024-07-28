@@ -1,60 +1,47 @@
-#ifndef VOXEL_ENGINE_CAMERA_H
-#define VOXEL_ENGINE_CAMERA_H
-
+#pragma once
+#include <glm/glm.hpp>
 #include "window.h"
-#include "glm/glm.hpp"
+#include "utilities/types.h"
 
-namespace VoxelEngine
+namespace voxel_engine
 {
-    class Camera
+    class camera
     {
-    // private:
+    private:
+        static camera* _current_camera;
+        window& _window;
+        float64_t _last_x = 0.0f;
+        float64_t _last_y = 0.0f;
+        bool _is_captured = false;
+
     public:
-        static Camera* m_CurrentCamera;
-        Window* m_Window = nullptr;
-        f64 m_LastX = 0.0f;
-        f64 m_LastY = 0.0f;
+        float32_t fov = 45.0f;
+        float32_t yaw = -90.0f;
+        float32_t pitch = 0.0f;
+        float32_t near = 0.01f;
+        float32_t far = 500000.0f;
 
-        f32 m_Fov = 45.0f;
-        // f32 m_Yaw = -90.0f;
-        // f32 m_Pitch = 0.0f;
-        f32 m_Near = 0.01f;
-        f32 m_Far = 500000.0f;
-        bool m_IsCaptured = false;
+        glm::vec3 front;
+        glm::vec3 right;
+        glm::vec3 up;
+        glm::vec3 position;
 
-        glm::vec3 m_Front{0.0f, 0.0f, -1.0f};
-        glm::vec3 m_Right{1.0f, 0.0f, 0.0f};
-        glm::vec3 m_Up{0.0f, 1.0f, 0.0f};
-        // glm::vec3 m_Position{0.0f, 0.0f, 0.0f};
+        explicit camera(window& _window);
 
-        void contrainAngles();
-        void updateAngles();
-        void updateVectors();
-    public:
-        glm::vec3 m_Position{0.0f, 0.0f, 0.0f};
-        f32 m_Yaw = -90.0f;
-        f32 m_Pitch = 0.0f;
+        void contrain_angles();
+        void update_angles();
+        void update_vectors();
 
-        explicit Camera(Window* p_Window);
-
-        void lookAt(const glm::vec3& p_Position);
+        void look_at(const glm::vec3& _position);
         void update();
         void capture();
         void release();
-        void updatePosition();
-        void updateMousePosition();
-        void forward(const f32& p_Step);
-        void setPosition(const glm::vec3& p_Position);
+        void update_position();
+        void update_mouse_position();
 
-        [[nodiscard]] glm::mat4 getInverseViewMatrix() const;
-        [[nodiscard]] glm::mat4 getViewMatrix() const;
-        [[nodiscard]] glm::mat4 getProjectionMatrix() const;
-        [[nodiscard]] glm::vec3 getPosition() const;
-        [[nodiscard]] glm::vec3 getFront() const;
-        [[nodiscard]] f32 getNear() const;
-        [[nodiscard]] f32 getFar() const;
-        static Camera* getCamera();
+        [[nodiscard]] glm::mat4 get_inverse_view_matrix() const;
+        [[nodiscard]] glm::mat4 get_view_matrix() const;
+        [[nodiscard]] glm::mat4 get_projection_matrix() const;
+        [[nodiscard]] static camera* get_current_camera();
     };
 }
-
-#endif

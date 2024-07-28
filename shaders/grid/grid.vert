@@ -1,6 +1,6 @@
 #version 430 core
 
-layout (location = 0) in vec4 a_Pos;
+layout (location = 0) in vec2 a_Pos;
 layout (std140, binding = 0) uniform Properties
 {
     mat4 view;

@@ -2,11 +2,11 @@
 
 std::vector<GLuint> ignored_ids = {131185};
 
-namespace VoxelEngine
+namespace voxel_engine
 {
-    const char* get_source(GLenum p_Source)
+    const char* get_source(const GLenum _source)
     {
-        switch (p_Source)
+        switch (_source)
         {
             case GL_DEBUG_SOURCE_API: return "API";
             case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "WINDOW_SYSTEM";
@@ -18,9 +18,9 @@ namespace VoxelEngine
         }
     }
 
-    const char* get_type(GLenum p_Type)
+    const char* get_type(const GLenum _type)
     {
-        switch (p_Type)
+        switch (_type)
         {
             case GL_DEBUG_TYPE_ERROR: return "ERROR";
             case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEPRECATED_BEHAVIOR";
@@ -35,9 +35,9 @@ namespace VoxelEngine
         }
     }
 
-    const char* get_severity(GLenum p_Type)
+    const char* get_severity(const GLenum _type)
     {
-        switch (p_Type)
+        switch (_type)
         {
             case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
             case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
@@ -47,24 +47,32 @@ namespace VoxelEngine
         }
     }
 
-    void debug_message_callback(GLenum p_Source, GLenum p_Type, GLuint p_Id, GLenum p_Severity, GLsizei p_Length, const char* p_Message, const void* p_UserParam)
+    void debug_message_callback(
+        const GLenum _source,
+        const GLenum _type,
+        const GLuint _id,
+        const GLenum _severity,
+        const GLsizei _length,
+        const char* _message,
+        const void* _user_param
+    )
     {
-        (void) p_Length;
-        (void) p_UserParam;
+        (void) _length;
+        (void) _user_param;
 
-        for (GLuint id : ignored_ids)
+        for (const GLuint id : ignored_ids)
         {
-            if (id == p_Id)
+            if (id == _id)
             {
                 return;
             }
         }
 
-        std::cerr << "Debug Message: " << p_Message << "\n"
-            << "    " << "Source: " << get_source(p_Source) << "\n"
-            << "    " << "Type: " << get_type(p_Type) << "\n"
-            << "    " << "Id: " << p_Id << "\n"
-            << "    " << "Severity: " << get_severity(p_Severity) << "\n";
+        std::cerr << "Debug Message: " << _message << "\n"
+            << "    " << "Source: " << get_source(_source) << "\n"
+            << "    " << "Type: " << get_type(_type) << "\n"
+            << "    " << "Id: " << _id << "\n"
+            << "    " << "Severity: " << get_severity(_severity) << "\n";
         // std::exit(0);
     }
 }

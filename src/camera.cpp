@@ -2,209 +2,195 @@
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 
-void scroll_callback(GLFWwindow* p_Window, f64 p_X, f64 p_Y)
+void scroll_callback(GLFWwindow* p_Window, float64_t p_X, float64_t p_Y)
 {
     (void) p_Window;
     (void) p_X;
-    VoxelEngine::Camera::getCamera()->forward(p_Y * 10.0f);
+
+    voxel_engine::camera* camera = voxel_engine::camera::get_current_camera();
+    camera->position += camera->front * static_cast<float32_t>(p_Y * 10.0f);
 }
 
-namespace VoxelEngine
+namespace voxel_engine
 {
-    Camera* Camera::m_CurrentCamera = nullptr;
+    camera* camera::_current_camera = nullptr;
 
-    Camera::Camera(Window* p_Window)
+    camera::camera(window& _window)
+        : _window(_window)
+        , front(0.0f, 0.0f, -1.0f)
+        , right(1.0f, 0.0f, 0.0f)
+        , up(0.0f, 1.0f, 0.0f)
     {
-        m_Window = p_Window;
-        m_CurrentCamera = this;
-        updateMousePosition();
-        glfwSetScrollCallback(m_Window->getWindow(), &scroll_callback);
+        _current_camera = this;
+        update_mouse_position();
+        glfwSetScrollCallback(_window.get_window(), &scroll_callback);
     }
 
-    void Camera::contrainAngles()
+    void camera::contrain_angles()
     {
-        if (m_Pitch > 89.99f)
+        if (pitch > 89.0f)
         {
-            m_Pitch = 89.99f;
+            pitch = 89.0f;
         }
-        else if (m_Pitch < -89.99f)
+        else if (pitch < -89.0f)
         {
-            m_Pitch = -89.99f;
+            pitch = -89.0f;
         }
     }
 
-    void Camera::updateAngles()
+    void camera::update_angles()
     {
-        f64 curr_x = m_LastX;
-        f64 curr_y = m_LastY;
+        const float64_t curr_x = _last_x;
+        const float64_t curr_y = _last_y;
 
-        updateMousePosition();
+        update_mouse_position();
 
-        m_Yaw += (m_LastX - curr_x) * 0.1f;
-        m_Pitch -= (m_LastY - curr_y) * 0.1f;
-        contrainAngles();
+        yaw += (_last_x - curr_x) * 0.1f;
+        pitch -= (_last_y - curr_y) * 0.1f;
+        contrain_angles();
     }
 
-    void Camera::updateVectors()
+    void camera::update_vectors()
     {
-        f64 rad_yaw = glm::radians(m_Yaw);
-        f64 rad_pitch = glm::radians(m_Pitch);
+        const float64_t rad_yaw = glm::radians(yaw);
+        const float64_t rad_pitch = glm::radians(pitch);
 
         glm::vec3 direction;
         direction.x = glm::cos(rad_yaw) * glm::cos(rad_pitch);
         direction.y = glm::sin(rad_pitch);
         direction.z = glm::sin(rad_yaw) * glm::cos(rad_pitch);
-        m_Front = glm::normalize(direction);
-        m_Right = glm::normalize(glm::cross(m_Front, glm::vec3(0.0f, 1.0f, 0.0f)));
-        m_Up = glm::normalize(glm::cross(m_Right, m_Front));
+        front = glm::normalize(direction);
+        right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
+        up = glm::normalize(glm::cross(right, front));
     }
 
-    void Camera::updatePosition()
+    void camera::update_position()
     {
-        f32 speed = m_Window->getDeltaTime() * 10.0f;
+        float32_t speed = _window.get_delta_time() * 10.0f;
 
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         {
             speed *= 0.1;
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_W) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_W) == GLFW_PRESS)
         {
-            m_Position += m_Front * speed;
+            position += front * speed;
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_S) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_S) == GLFW_PRESS)
         {
-            m_Position -= m_Front * speed;
+            position -= front * speed;
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_A) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_A) == GLFW_PRESS)
         {
-            m_Position -= m_Right * speed;
+            position -= right * speed;
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_D) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_D) == GLFW_PRESS)
         {
-            m_Position += m_Right * speed;
+            position += right * speed;
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_E) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_E) == GLFW_PRESS)
         {
-            m_Position += m_Up * speed;
+            position += up * speed;
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_Q) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_Q) == GLFW_PRESS)
         {
-            m_Position -= m_Up * speed;
+            position -= up * speed;
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_LEFT) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_LEFT) == GLFW_PRESS)
         {
-            m_Yaw -= speed;
-            contrainAngles();
-            updateVectors();
+            yaw -= speed;
+            contrain_angles();
+            update_vectors();
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_RIGHT) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_RIGHT) == GLFW_PRESS)
         {
-            m_Yaw += speed;
-            contrainAngles();
-            updateVectors();
+            yaw += speed;
+            contrain_angles();
+            update_vectors();
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_UP) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_UP) == GLFW_PRESS)
         {
-            m_Pitch += speed;
-            contrainAngles();
-            updateVectors();
+            pitch += speed;
+            contrain_angles();
+            update_vectors();
         }
-        if (glfwGetKey(m_Window->getWindow(), GLFW_KEY_DOWN) == GLFW_PRESS)
+        if (glfwGetKey(_window.get_window(), GLFW_KEY_DOWN) == GLFW_PRESS)
         {
-            m_Pitch -= speed;
-            contrainAngles();
-            updateVectors();
+            pitch -= speed;
+            contrain_angles();
+            update_vectors();
         }
     }
 
-    void Camera::updateMousePosition()
+    void camera::update_mouse_position()
     {
-        glfwGetCursorPos(m_Window->getWindow(), &m_LastX, &m_LastY);
+        glfwGetCursorPos(_window.get_window(), &_last_x, &_last_y);
     }
 
-    void Camera::update()
+    void camera::update()
     {
-        updateAngles();
-        updateVectors();
+        update_angles();
+        update_vectors();
     }
 
-    void Camera::lookAt(const glm::vec3& p_Position)
+    void camera::look_at(const glm::vec3& _position)
     {
-        updateMousePosition();
+        if (_position == position)
+        {
+            return;
+        }
 
-        glm::vec3 direction = glm::normalize(p_Position - m_Position);
-        m_Yaw = glm::degrees(glm::atan(direction.z, direction.x));
-        m_Pitch = glm::degrees(glm::asin(direction.y));
+        update_mouse_position();
+
+        const glm::vec3 direction = glm::normalize(_position - position);
+        yaw = glm::degrees(glm::atan(direction.z, direction.x));
+        pitch = glm::degrees(glm::asin(direction.y));
         update();
     }
 
-    void Camera::capture()
+    void camera::capture()
     {
-        if (!m_IsCaptured)
+        if (!_is_captured)
         {
-            glfwSetInputMode(m_Window->getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            updateMousePosition();
-            m_IsCaptured = true;
+            glfwSetInputMode(_window.get_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            update_mouse_position();
+            _is_captured = true;
         }
         update();
     }
 
-    void Camera::release()
+    void camera::release()
     {
-        if (m_IsCaptured)
+        if (_is_captured)
         {
-            glfwSetInputMode(m_Window->getWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-            m_IsCaptured = false;
+            glfwSetInputMode(_window.get_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            _is_captured = false;
         }
     }
 
-    void Camera::forward(const f32& p_Step)
+    glm::mat4 camera::get_view_matrix() const
     {
-        m_Position += m_Front * p_Step;
+        return glm::lookAt(position, position + front, glm::vec3(0.0f, 1.0f, 0.0f));
     }
 
-    glm::mat4 Camera::getViewMatrix() const
+    glm::mat4 camera::get_inverse_view_matrix() const
     {
-        return glm::lookAt(m_Position, m_Position + m_Front, glm::vec3(0.0f, 1.0f, 0.0f));
+        return glm::inverse(get_view_matrix());
     }
 
-    glm::mat4 Camera::getInverseViewMatrix() const
+    glm::mat4 camera::get_projection_matrix() const
     {
-        return glm::inverse(glm::lookAt(m_Position, m_Position + m_Front, glm::vec3(0.0f, 1.0f, 0.0f)));
+        return glm::perspective(
+            glm::radians(fov),
+            static_cast<float32_t>(_window.width) / static_cast<float32_t>(_window.height),
+            near,
+            far
+        );
     }
 
-    glm::mat4 Camera::getProjectionMatrix() const
+    camera* camera::get_current_camera()
     {
-        return glm::perspective(glm::radians(m_Fov), float(m_Window->width) / float(m_Window->height), m_Near, m_Far);
-    }
-
-    glm::vec3 Camera::getPosition() const
-    {
-        return m_Position;
-    }
-
-    glm::vec3 Camera::getFront() const
-    {
-        return m_Front;
-    }
-
-    f32 Camera::getNear() const
-    {
-        return m_Near;
-    }
-
-    f32 Camera::getFar() const
-    {
-        return m_Far;
-    }
-
-    Camera* Camera::getCamera()
-    {
-        return m_CurrentCamera;
-    }
-
-    void Camera::setPosition(const glm::vec3& p_Position)
-    {
-        m_Position = p_Position;
+        return _current_camera;
     }
 }
+

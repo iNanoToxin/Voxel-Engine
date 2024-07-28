@@ -1,15 +1,15 @@
 #include "window.h"
 
-void framebuffer_size_callback(GLFWwindow* p_Window, i32 p_Width, i32 p_Height)
+void framebuffer_size_callback(GLFWwindow* p_Window, int32_t p_Width, int32_t p_Height)
 {
     glViewport(0, 0, p_Width, p_Height);
 }
 
-VoxelEngine::Window::Window(const u16 p_Width, const u16 p_Height, const char* p_Title, const bool p_FullScreen)
+voxel_engine::window::window(const uint16_t _width, const uint16_t _height, const char* _title, const bool _full_screen)
 {
-    VE_assert(p_Width != 0, "Screen width cannot be zero.");
-    VE_assert(p_Height != 0, "Screen height cannot be zero.");
-    VE_assert(p_Title != nullptr, "Title cannot be a nullptr.");
+    VE_assert(_width != 0, "Screen width cannot be zero.");
+    VE_assert(_height != 0, "Screen height cannot be zero.");
+    VE_assert(_title != nullptr, "Title cannot be a nullptr.");
 
     VE_assert(glfwInit(), "Failed to initialize GLFW library.");
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -17,19 +17,19 @@ VoxelEngine::Window::Window(const u16 p_Width, const u16 p_Height, const char* p
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SAMPLES, 64);
 
-    m_LastFrame = glfwGetTime();
-    m_Window = glfwCreateWindow(p_Width, p_Height, p_Title, nullptr, nullptr);
-    VE_assert(m_Window != nullptr, "Failed to create GLFW window.");
+    _last_frame = glfwGetTime();
+    _window = glfwCreateWindow(_width, _height, _title, nullptr, nullptr);
+    VE_assert(_window != nullptr, "Failed to create GLFW window.");
 
-    glfwMakeContextCurrent(m_Window);
-    glfwSetFramebufferSizeCallback(m_Window, &framebuffer_size_callback);
+    glfwMakeContextCurrent(_window);
+    glfwSetFramebufferSizeCallback(_window, &framebuffer_size_callback);
     glfwSwapInterval(1);
 
     VE_assert(gladLoadGL(), "Failed to initialize GLAD library.");
 
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(VoxelEngine::debug_message_callback, nullptr);
+    glDebugMessageCallback(debug_message_callback, nullptr);
 
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
@@ -37,62 +37,62 @@ VoxelEngine::Window::Window(const u16 p_Width, const u16 p_Height, const char* p
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_CULL_FACE);
 
-    glViewport(0, 0, p_Width, p_Height);
+    glViewport(0, 0, _width, _height);
 
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
-    if (p_FullScreen)
+    if (_full_screen)
     {
         width = mode->width;
         height = mode->height;
-        glfwSetWindowMonitor(m_Window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+        glfwSetWindowMonitor(_window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
     }
     else
     {
-        width = p_Width;
-        height = p_Height;
-        glfwSetWindowPos(m_Window, (mode->width - width) / 2, (mode->height - height) / 2);
+        width = _width;
+        height = _height;
+        glfwSetWindowPos(_window, (mode->width - width) / 2, (mode->height - height) / 2);
     }
 }
 
-VoxelEngine::Window::~Window()
+voxel_engine::window::~window()
 {
     glfwTerminate();
 }
 
-bool VoxelEngine::Window::shouldClose()
+bool voxel_engine::window::should_close()
 {
-    return glfwWindowShouldClose(m_Window);
+    return glfwWindowShouldClose(_window);
 }
 
-void VoxelEngine::Window::clear(const u8 p_R, const u8 p_G, const u8 p_B, const f32 p_A)
+void voxel_engine::window::clear(const uint8_t _r, const uint8_t _g, const uint8_t _b, const float32_t _a)
 {
-    f64 current_frame = glfwGetTime();
-    m_DeltaTime = current_frame - m_LastFrame;
-    m_LastFrame = current_frame;
+    float64_t current_frame = glfwGetTime();
+    _delta_time = current_frame - _last_frame;
+    _last_frame = current_frame;
 
-    glClearColor(p_R / 255.0f, p_G / 255.0f, p_B / 255.0f, p_A);
+    glClearColor(_r / 255.0f, _g / 255.0f, _b / 255.0f, _a);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void VoxelEngine::Window::swap()
+void voxel_engine::window::swap()
 {
-    glfwSwapBuffers(m_Window);
+    glfwSwapBuffers(_window);
     glfwPollEvents();
 }
 
-f64 VoxelEngine::Window::getDeltaTime() const
+float64_t voxel_engine::window::get_delta_time() const
 {
-    return m_DeltaTime;
+    return _delta_time;
 }
 
-f64 VoxelEngine::Window::getFps() const
+float64_t voxel_engine::window::get_fps() const
 {
-    return 1.0f / m_DeltaTime;
+    return 1.0f / _delta_time;
 }
 
-GLFWwindow* VoxelEngine::Window::getWindow() const
+GLFWwindow* voxel_engine::window::get_window() const
 {
-    return m_Window;
+    return _window;
 }
