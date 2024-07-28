@@ -21,7 +21,6 @@ in vec3 o_FragPos;
 in vec3 o_TexCoord;
 flat in ivec3 o_Scale;
 flat in int o_TexIndex;
-flat in int o_VertexId;
 
 uniform vec3 u_ViewPos;
 uniform Material u_Material;
@@ -30,12 +29,19 @@ uniform samplerCubeArray u_Texture;
 
 float scale(float coord, float scale)
 {
+    // transform range from [-0.5, 0.5] to [0.0, 1.0]
     coord = coord + 0.5;
 
-    if (coord == 0.0 || coord == 1.0)
+    // edge cases to remove artifacts (floating point precision error)
+    if (coord <= 1e-5)
     {
-        return coord - 0.5;
+        return -0.5;
     }
+    else if (coord >= 1.0 - 1e-5)
+    {
+        return 0.5;
+    }
+    // wrap texture and transform range to [-0.5, 0.5]
     return mod(coord * scale, 1.0) - 0.5;
 }
 
@@ -64,4 +70,5 @@ void main()
     vec3 result = ambient + diffuse + specular;
 
     FragColor = vec4(result, 1.0);
+//    FragColor = vec4(texture(u_Texture, vec4(tex_coord, o_TexIndex)).rgb, 1.0);
 }
