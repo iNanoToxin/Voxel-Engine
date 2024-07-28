@@ -1,170 +1,141 @@
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <iostream>
-#include <vector>
-#include "window.h"
-#include "rendering/shader.h"
+#include <glm/ext/matrix_transform.hpp>
 #include "camera.h"
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include "window.h"
+#include "common/constants.h"
+#include "game/data/world_data.h"
+#include "rendering/grid_overlay.h"
+#include "rendering/shader.h"
+#include "rendering/skybox.h"
+#include "rendering/gl/cube_map_array.h"
+#include "rendering/gl/vertex_array.h"
+#include "rendering/gl/vertex_buffer.h"
+#include "utilities/json.h"
+
+#include "utilities/FastNoiseLite.h"
+#include "game/chunk.h"
+
+
+using nlohmann::json;
+
+void insert_voxels(std::vector<block>& _data, const std::vector<block>& _blocks)
+{
+    for (uint32_t i = 0; i < _blocks.size(); i++)
+    {
+        _data.push_back(_blocks[i]);
+    }
+}
 
 int main()
 {
-    VoxelEngine::Window window(2560 / 2, 1440 / 2, "Voxel Engine", true);
+    voxel_engine::window window(2560 / 2, 1440 / 2, "Voxel Engine", true);
+    voxel_engine::camera camera(window);
+    voxel_engine::grid_overlay grid_overlay;
 
-    const char* vertex_path = R"(C:\Users\dylan\JetBrains\CLionProjects\Voxel-Engine\shaders\shader.vert)";
-    const char* fragment_path = R"(C:\Users\dylan\JetBrains\CLionProjects\Voxel-Engine\shaders\shader.frag)";
-    VoxelEngine::Shader shader(vertex_path, fragment_path);
+    voxel_engine::world_data world_data(GET_DATA("world_data.json"));
+    voxel_engine::skybox skybox(
+        {
+            GET_TEXTURE("skybox/right.jpg"),
+            GET_TEXTURE("skybox/left.jpg"),
+            GET_TEXTURE("skybox/top.jpg"),
+            GET_TEXTURE("skybox/bottom.jpg"),
+            GET_TEXTURE("skybox/front.jpg"),
+            GET_TEXTURE("skybox/back.jpg")
+        }
+    );
 
-    const char* grid_vertex_path = R"(C:\Users\dylan\JetBrains\CLionProjects\Voxel-Engine\shaders\grid.vert)";
-    const char* grid_fragment_path = R"(C:\Users\dylan\JetBrains\CLionProjects\Voxel-Engine\shaders\grid.frag)";
-    VoxelEngine::Shader grid_shader(grid_vertex_path, grid_fragment_path);
+    camera.position = world_data.get_vec3("camera_position");
+    camera.look_at(camera.position + world_data.get_vec3("camera_front"));
 
-    // const char* grid_vertex_path2 = R"(C:\Users\dylan\JetBrains\CLionProjects\Voxel-Engine\shaders\grid_overlay.vert)";
-    // const char* grid_fragment_path2 = R"(C:\Users\dylan\JetBrains\CLionProjects\Voxel-Engine\shaders\grid_overlay.frag)";
-    // VoxelEngine::Shader grid_shader2(grid_vertex_path2, grid_fragment_path2);
-
-    std::vector<glm::mat4> mat;
-    u32 vao, vbo, ibo;
-    {
-        float vertices[216] = {
-            // back face (CCW winding)
-            0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,  // bottom-left
-            -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, // bottom-right
-            -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,  // top-right
-            -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,  // top-right
-            0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,   // top-left
-            0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,  // bottom-left
-            // front face (CCW winding)
-            -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, // bottom-left
-            0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,  // bottom-right
-            0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,   // top-right
-            0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,   // top-right
-            -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,  // top-left
-            -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, // bottom-left
-            // left face (CCW)
-            -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, // bottom-left
-            -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f,  // bottom-right
-            -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,   // top-right
-            -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,   // top-right
-            -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f,  // top-left
-            -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, // bottom-left
-            // right face (CCW)
-            0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,    // bottom-left
-            0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,   // bottom-right
-            0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f,    // top-right
-            0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f,    // top-right
-            0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,     // top-left
-            0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,    // bottom-left
-            // bottom face (CCW)
-            -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, // bottom-left
-            0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f,  // bottom-right
-            0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,   // top-right
-            0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,   // top-right
-            -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,  // top-left
-            -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, // bottom-left
-            // top face (CCW)
-            -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,  // bottom-left
-            0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,   // bottom-right
-            0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // top-right
-            0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  // top-right
-            -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, // top-left
-            -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,  // bottom-left
-        };
-
-        glm::mat4 model(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 5.0f));
-
-        mat.push_back(model);
-
-        glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
-
-        glGenBuffers(1, &vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
-        glEnableVertexAttribArray(0);
-
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-
-        glGenBuffers(1, &ibo);
-        glBindBuffer(GL_ARRAY_BUFFER, ibo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * mat.size(), mat.data(), GL_STATIC_DRAW);
-
-        glEnableVertexAttribArray(2);
-        glEnableVertexAttribArray(3);
-        glEnableVertexAttribArray(4);
-        glEnableVertexAttribArray(5);
-
-        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), nullptr);
-        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(1 * sizeof(glm::vec4)));
-        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(2 * sizeof(glm::vec4)));
-        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(3 * sizeof(glm::vec4)));
-
-        glVertexAttribDivisor(2, 1);
-        glVertexAttribDivisor(3, 1);
-        glVertexAttribDivisor(4, 1);
-        glVertexAttribDivisor(5, 1);
-    }
-
-
-
-
-
-    VoxelEngine::Camera camera(&window);
-    camera.lookAt(glm::vec3(0.0f, 0.0f, -5.0f));
-    camera.setPosition(glm::vec3(0.0f, 1.0f, 0.0f));
-    camera.forward(-4.0f);
-    camera.lookAt(glm::vec3(0.0f, 0.0f, 5.0f));
-
-    float vertices[] = {
-        -1.0f, -1.0f, 0.0f,
-        1.0f, -1.0f, 0.0f,
-        1.0f, 1.0f, 0.0f,
-        -1.0f, 1.0f, 0.0f
-    };
-
-    unsigned int indices[] = {
-        0, 1, 2,
-        2, 3, 0
-    };
-
-    unsigned int VBO, VAO, EBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window.getWindow(), true);
+    ImGui_ImplGlfw_InitForOpenGL(window.get_window(), true);
     ImGui_ImplOpenGL3_Init("#version 430");
 
     ImGuiIO* io = &ImGui::GetIO();
     io->AddMouseButtonEvent(GLFW_MOUSE_BUTTON_1, true);
 
-    while (!window.shouldClose())
+    std::vector<block> voxel_data;
+
+
+    voxel_engine::shader voxel_shader(GET_SHADER("voxel.vert"), GET_SHADER("voxel.frag"));
+
+    voxel_engine::vertex_array vertex_array;
+    voxel_engine::vertex_buffer vertex_buffer(GL_ARRAY_BUFFER);
+
+    vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);
+    // each attribute represents a vec4 of mat4
+    vertex_array.set_stride(sizeof(block));
+
+
+    vertex_array.add_attribute_float32(0, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
+    vertex_array.add_attribute_float32(1, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
+    vertex_array.add_attribute_float32(2, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
+    vertex_array.add_attribute_float32(3, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
+    // updates each vec4 of the mat4 each instance
+    vertex_array.update_attribute_per_instance(0, 1);
+    vertex_array.update_attribute_per_instance(1, 1);
+    vertex_array.update_attribute_per_instance(2, 1);
+    vertex_array.update_attribute_per_instance(3, 1);
+
+    vertex_array.add_attribute_int32(4, 1, GL_INT, sizeof(int32_t));
+    vertex_array.update_attribute_per_instance(4, 1);
+
+    #pragma region INIT_VOXEL_CUBE_MAP_ARRAY
+    std::vector<std::array<std::string, 6>> block_data = json::parse(voxel_engine::util::read_file(GET_DATA("block_data.json")));
+
+    for (uint32_t i = 0; i < block_data.size(); i++)
     {
+        for (uint32_t j = 0; j < 6; j++)
+        {
+            block_data[i][j] = TEXTURES_PATH + block_data[i][j];
+        }
+    }
+
+    voxel_engine::cube_map_array cube_map_array;
+    cube_map_array.load_cube_map_array(block_data);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    #pragma endregion
+
+    for (int32_t i = 0; i <= 32; i++)
+    {
+        for (int32_t j = 0; j <= 32; j++)
+        {
+            voxel_engine::chunk chunk(glm::ivec3(i, 0, j));
+            insert_voxels(voxel_data, chunk.get_voxels_greedy());
+        }
+    }
+
+    vertex_array.bind_vertex_array();
+    vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);
+
+
+    while (!window.should_close())
+    {
+        static bool gl_fill = world_data.get<bool>("gl_fill");
+
         window.clear(20, 20, 20);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        if (!io->WantCaptureMouse && (glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS || glfwGetMouseButton(window.getWindow(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS))
+        glm::vec3 camera_position = camera.position - glm::vec3(0.0f, 32.0f, 0.0f);
+        const int32_t chunk_x = glm::floor(camera_position.x / CHUNK_SIZE);
+        const int32_t chunk_y = glm::floor(camera_position.y / CHUNK_SIZE);
+        const int32_t chunk_z = glm::floor(camera_position.z / CHUNK_SIZE);
+        glm::ivec3 chunk_position(chunk_x, chunk_y, chunk_z);
+
+
+        #pragma region INPUT_HANDLER
+        if (!io->WantCaptureMouse && (glfwGetMouseButton(window.get_window(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS ||
+            glfwGetMouseButton(window.get_window(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS))
         {
             camera.capture();
         }
@@ -172,64 +143,66 @@ int main()
         {
             camera.release();
         }
-        camera.updatePosition();
-
+        if (glfwGetKey(window.get_window(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
         {
-            shader.use();
-            shader.setMat4("u_View", camera.getViewMatrix());
-            shader.setMat4("u_Projection", camera.getProjectionMatrix());
-            shader.setVec3("u_ViewPos", camera.getPosition());
-
-            shader.setVec3("u_Light.position", glm::vec3(0.0f, 0.0f, 0.0f));
-            shader.setVec3("u_Light.ambient", glm::vec3(0.5f));
-            shader.setVec3("u_Light.diffuse", glm::vec3(0.5f));
-            shader.setVec3("u_Light.specular", glm::vec3(1.0f));
-
-            shader.setVec3("u_Material.ambient", glm::vec3(1.0f, 0.3f, 0.3f));
-            shader.setVec3("u_Material.diffuse", glm::vec3(1.0f, 0.3f, 0.3f));
-            shader.setVec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
-            shader.setFloat("u_Material.shininess", 64.0f);
-
-            // mat[0] = glm::rotate(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), (float) glfwGetTime(), glm::vec3(1.0f, 1.0f, 1.0f));
-            // glBindBuffer(GL_ARRAY_BUFFER, ibo);
-            // glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * mat.size(), mat.data(), GL_STATIC_DRAW);
-
-            glBindVertexArray(vao);
-            glDrawArraysInstanced(GL_TRIANGLES, 0, 36, mat.size());
+            glfwSetWindowShouldClose(window.get_window(), true);
         }
+        camera.update_position();
+        #pragma endregion
 
+        #pragma region DRAW_CUBES
+        glPolygonMode(GL_FRONT_AND_BACK, gl_fill ? GL_FILL : GL_LINE);
 
-        grid_shader.use();
-        grid_shader.setFloat("u_Near", camera.getNear());
-        grid_shader.setFloat("u_Far", camera.getFar());
-        grid_shader.setMat4("u_Projection", camera.getProjectionMatrix());
-        grid_shader.setMat4("u_View", camera.getViewMatrix());
-        grid_shader.setVec3("u_CameraPos", camera.getPosition());
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+        voxel_shader.use();
+        voxel_shader.set_mat4("u_View", camera.get_view_matrix());
+        voxel_shader.set_mat4("u_Projection", camera.get_projection_matrix());
+        voxel_shader.set_mat4("u_View", camera.get_view_matrix());
+        voxel_shader.set_mat4("u_Projection", camera.get_projection_matrix());
+        voxel_shader.set_vec3("u_ViewPos", camera.position);
+        voxel_shader.set_vec3("u_Light.position", camera.position + glm::vec3(0.0f, 100.0f, 0.0f));
+        voxel_shader.set_vec3("u_Light.ambient", glm::vec3(0.5f));
+        voxel_shader.set_vec3("u_Light.diffuse", glm::vec3(1.0f));
+        voxel_shader.set_vec3("u_Light.specular", glm::vec3(1.0f));
+        voxel_shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
+        voxel_shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+        voxel_shader.set_float32("u_Material.shininess", 64.0f);
+        // voxel_shader.set_int32("u_Material.diffuse", 0);
+        // glActiveTexture(GL_TEXTURE0);
+        // glBindTexture(GL_TEXTURE_2D, atlas_texture);
+        // voxel_shader.set_i32("u_TextureArray", texture_array);
+        voxel_shader.set_int32("u_Texture", 0);
+        cube_map_array.set_active_texture(GL_TEXTURE0);
 
+        // voxel_data[0].transform = glm::translate(glm::mat4(1.0), glm::vec3(0.0, glm::sin(glfwGetTime()), 0.0));
+        // voxel_data[1].block_type = static_cast<uint32_t>(glfwGetTime() * 30) % 3;
 
-        if (glfwGetKey(window.getWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        {
-            glfwSetWindowShouldClose(window.getWindow(), true);
-        }
+        vertex_array.bind_vertex_array();
+        // vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);
+        vertex_array.draw_arrays_instanced(GL_TRIANGLES, 0, 36, voxel_data.size());
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        #pragma endregion
 
+        skybox.render(camera);
+        grid_overlay.render(camera);
 
+        #pragma region IMGUI
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        if (ImGui::Begin("Voxel Enginess"))
+        ImGui::SetNextWindowSizeConstraints(ImVec2(200, 200), ImVec2(FLT_MAX, FLT_MAX));
+
+        if (ImGui::Begin("Voxel Engine"))
         {
-            static ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+            static ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg |
+                ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable;
+
+            glm::vec3 camera_position = camera.position;
 
             if (ImGui::BeginTable("Data", 3, flags))
             {
-                glm::vec3 camera_position = camera.getPosition();
-                glm::vec3 camera_front = camera_position + camera.getFront() * 5.0f;
-
                 double x_position, y_position;
-                glfwGetCursorPos(window.getWindow(), &x_position, &y_position);
+                glfwGetCursorPos(window.get_window(), &x_position, &y_position);
 
                 ImGui::TableSetupColumn("Info", ImGuiTableColumnFlags_WidthFixed);
                 ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed);
@@ -241,9 +214,10 @@ int main()
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Camera Position");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
-                ImGui::Text("%.2f, %.2f, %.2f", camera_position.x, camera_position.y, camera_position.z);
-                ImGui::PopStyleColor();
+                float32_t column_width = ImGui::GetContentRegionAvail().x;
+                ImGui::PushItemWidth(column_width);
+                ImGui::DragFloat3("##camera_pos", &camera.position[0], 1.0f, 0.0f, 0.0f, "%.03f");
+                ImGui::PopItemWidth();
                 ImGui::TableSetColumnIndex(2);
                 if (ImGui::Button("Copy"))
                 {
@@ -252,31 +226,67 @@ int main()
                     pos << std::to_string(camera_position.x) << ", ";
                     pos << std::to_string(camera_position.y) << ", ";
                     pos << std::to_string(camera_position.z) << ")";
-                    glfwSetClipboardString(window.getWindow(), pos.str().c_str());
+                    glfwSetClipboardString(window.get_window(), pos.str().c_str());
                 }
                 ImGui::PopID();
 
                 ImGui::PushID(1);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Camera Front (5)");
+                ImGui::Text("Camera Yaw/Pitch");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
-                ImGui::Text("%.2f, %.2f, %.2f", camera_front.x, camera_front.y, camera_front.z);
-                ImGui::PopStyleColor();
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, ImGui::GetStyle().ItemSpacing.y));
+                column_width = ImGui::GetContentRegionAvail().x;
+                float32_t item_spacing = ImGui::GetStyle().ItemSpacing.x;
+                float32_t item_width = (column_width - item_spacing) / 2;
+                ImGui::PushItemWidth(item_width);
+                if (ImGui::DragFloat("##camera_yaw", &camera.yaw, 0.1f, 0.0f, 0.0f, "%.03f"))
+                {
+                    camera.contrain_angles();
+                    camera.update_vectors();
+                }
+                ImGui::PopItemWidth();
+                ImGui::SameLine();
+                ImGui::PushItemWidth(item_width);
+                if (ImGui::DragFloat("##camera_pitch", &camera.pitch, 0.1f, -89.0f, 89.0f, "%.03f"))
+                {
+                    camera.contrain_angles();
+                    camera.update_vectors();
+                }
+                ImGui::PopItemWidth();
+                ImGui::PopStyleVar();
+                ImGui::TableSetColumnIndex(2);
+                if (ImGui::Button("Copy"))
+                {
+                    std::stringstream pos;
+                    pos << "glm::vec2(";
+                    pos << std::to_string(camera.yaw) << ", ";
+                    pos << std::to_string(camera.pitch) << ")";
+                    glfwSetClipboardString(window.get_window(), pos.str().c_str());
+                }
+                ImGui::PopID();
+
+                ImGui::PushID(2);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Look Direction");
+                ImGui::TableSetColumnIndex(1);
+                // ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
+                ImGui::Text("%.3f, %.3f, %.3f", camera.front.x, camera.front.y, camera.front.z);
+                // ImGui::PopStyleColor();
                 ImGui::TableSetColumnIndex(2);
                 if (ImGui::Button("Copy"))
                 {
                     std::stringstream pos;
                     pos << "glm::vec3(";
-                    pos << std::to_string(camera_front.x) << ", ";
-                    pos << std::to_string(camera_front.y) << ", ";
-                    pos << std::to_string(camera_front.z) << ")";
-                    glfwSetClipboardString(window.getWindow(), pos.str().c_str());
+                    pos << std::to_string(camera.front.x) << ", ";
+                    pos << std::to_string(camera.front.y) << ", ";
+                    pos << std::to_string(camera.front.z) << ")";
+                    glfwSetClipboardString(window.get_window(), pos.str().c_str());
                 }
                 ImGui::PopID();
 
-                ImGui::PushID(2);
+                ImGui::PushID(3);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Mouse Position");
@@ -288,38 +298,84 @@ int main()
                 if (ImGui::Button("Copy"))
                 {
                     std::stringstream pos;
+                    pos << "glm::vec2(";
                     pos << std::to_string(x_position) << ", ";
-                    pos << std::to_string(y_position);
-                    glfwSetClipboardString(window.getWindow(), pos.str().c_str());
+                    pos << std::to_string(y_position) << ")";
+                    glfwSetClipboardString(window.get_window(), pos.str().c_str());
                 }
                 ImGui::PopID();
 
-                ImGui::PushID(3);
+                ImGui::PushID(4);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Application average");
+                ImGui::Text("App Info");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 255, 255));
                 ImGui::Text("%.3f ms/frame", 1000.0f / io->Framerate);
                 ImGui::PopStyleColor();
                 ImGui::TableSetColumnIndex(2);
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 255, 255));
-                ImGui::Text("%.1f FPS", io->Framerate);
+                ImGui::Text("%.1f fps", io->Framerate);
                 ImGui::PopStyleColor();
                 ImGui::PopID();
-
-                ImGui::EndTable();
-
-                ImGui::SliderFloat("Camera Position X", &camera.m_Position.x, -10000.0f, 10000.0f, "%.03f");
-                ImGui::SliderFloat("Camera Position Y", &camera.m_Position.y, -10000.0f, 10000.0f, "%.03f");
-                ImGui::SliderFloat("Camera Position Z", &camera.m_Position.z, -10000.0f, 10000.0f, "%.03f");
             }
-            ImGui::End();
+            ImGui::EndTable();
+
+            if (ImGui::BeginTable("Chunk Data", 2, flags))
+            {
+                ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableHeadersRow();
+
+                int32_t x = glm::floor(camera_position.x / CHUNK_SIZE);
+                int32_t y = glm::floor(camera_position.y / CHUNK_SIZE);
+                int32_t z = glm::floor(camera_position.z / CHUNK_SIZE);
+                ImGui::PushID(0);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Current Chunk");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("Chunk{%i, %i, %i}", x, y, z);
+                ImGui::PopID();
+
+                ImGui::PushID(1);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Voxel Count");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%i", voxel_data.size());
+                ImGui::PopID();
+
+                ImGui::PushID(2);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Triangle Count");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%i", voxel_data.size() * 12);
+                ImGui::PopID();
+
+                ImGui::PushID(3);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Clear Voxels");
+                ImGui::TableSetColumnIndex(1);
+                if (ImGui::Button("Clear")) {}
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+
+            ImGui::Checkbox("GL_FILL", &gl_fill);
         }
+        ImGui::End();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        #pragma endregion
 
+        world_data.set_vec3("camera_position", camera.position);
+        world_data.set_vec3("camera_front", camera.front);
+        world_data.set("gl_fill", gl_fill);
+        world_data.save();
         window.swap();
     }
     return 0;

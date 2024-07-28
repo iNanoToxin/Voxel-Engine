@@ -1,17 +1,14 @@
-#ifndef VOXELENGINE_TYPES_H
-#define VOXELENGINE_TYPES_H
+#pragma once
 
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef unsigned long long int u64;
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long int uint64_t;
 
-typedef char i8;
-typedef short i16;
-typedef int i32;
-typedef long long int i64;
+typedef signed char int8_t;
+typedef signed short int16_t;
+typedef signed int int32_t;
+typedef signed long long int int64_t;
 
-typedef float f32;
-typedef double f64;
-
-#endif
+typedef float float32_t;
+typedef double float64_t;

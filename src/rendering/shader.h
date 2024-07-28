@@ -1,38 +1,26 @@
-#ifndef VOXELENGINE_SHADER_H
-#define VOXELENGINE_SHADER_H
-
-#include <string>
+#pragma once
 #include <glad/glad.h>
 #include "glm/glm.hpp"
 #include "utilities/types.h"
-#include "utilities/util.h"
-#include "glm/gtc/type_ptr.hpp"
 
-namespace VoxelEngine
+
+namespace voxel_engine
 {
-    class Shader
+    class shader
     {
     private:
-        u32 m_Id;
+        uint32_t _id;
 
-        u32 getUniformLocation(const char* p_Uniform) const;
+        [[nodiscard]] uint32_t get_uniform_location(const char* _uniform) const;
+        [[nodiscard]] static uint32_t compile_shader(const char* _path, GLenum _type);
+        [[nodiscard]] uint32_t link_shader(uint32_t _vertex_shader, uint32_t _fragment_shader) const;
     public:
-        Shader(const char* p_VertexShader, const char* p_FragmentShader);
-
-        [[nodiscard]] u32 compileShader(const char* p_Path, GLenum p_Type) const;
-        [[nodiscard]] u32 linkShader(u32 p_VertexShader, u32 p_FragmentShader) const;
+        shader(const char* _vertex_shader, const char* _fragment_shader);
 
         void use() const;
-        void setMat4(const char* p_Uniform, glm::mat4 p_Mat4);
-        void setVec3(const char* p_Uniform, glm::vec3 p_Vec3)
-        {
-            glUniform3fv(getUniformLocation(p_Uniform), 1, glm::value_ptr(p_Vec3));
-        }
-        void setFloat(const char* p_Uniform, float p_Float)
-        {
-            glUniform1f(getUniformLocation(p_Uniform), p_Float);
-        }
+        void set_mat4(const char* _uniform, glm::mat4 _mat4) const;
+        void set_vec3(const char* _uniform, glm::vec3 _vec3) const;
+        void set_float32(const char* _uniform, float32_t _float) const;
+        void set_int32(const char* _uniform, int32_t _int) const;
     };
 }
-
-#endif

@@ -1,18 +1,22 @@
-#ifndef VOXELENGINE_DEBUG_H
-#define VOXELENGINE_DEBUG_H
-
+#pragma once
 #include "utilities/types.h"
 #include "glad/glad.h"
 #include <iostream>
 #include <vector>
 
-namespace VoxelEngine
+namespace voxel_engine
 {
-    static const char* get_source(GLenum p_Source);
-    static const char* get_type(GLenum p_Type);
-    static const char* get_severity(GLenum p_Type);
+    static const char* get_source(GLenum _source);
+    static const char* get_type(GLenum _type);
+    static const char* get_severity(GLenum _type);
 
-    void APIENTRY debug_message_callback(GLenum p_Source, GLenum p_Type, GLuint p_Id, GLenum p_Severity, GLsizei p_Length, const char* p_Message, const void* p_UserParam);
+    void APIENTRY debug_message_callback(
+        GLenum _source,
+        GLenum _type,
+        GLuint _id,
+        GLenum _severity,
+        GLsizei _length,
+        const char* _message,
+        const void* _user_param
+    );
 }
-
-#endif

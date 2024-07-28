@@ -1,15 +1,10 @@
-#ifndef VOXELENGINE_UTIL_H
-#define VOXELENGINE_UTIL_H
-
+#pragma once
 #include <string>
-#include <fstream>
-#include <sstream>
 #include "utilities/assert.h"
 
-namespace VoxelEngine::Util
+namespace voxel_engine::util
 {
-    std::string read_file(const char* p_FilePath);
+    std::string read_file(const char* _file_path);
+    void write_file(const char* _file_path, const std::string& _source);
+    uint32_t load_texture(char const* _file_path);
 }
-
-
-#endif
