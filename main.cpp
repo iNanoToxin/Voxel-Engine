@@ -29,6 +29,22 @@ void insert_voxels(std::vector<block>& _data, const std::vector<block>& _blocks)
     }
 }
 
+enum face_type
+{
+    back_face,
+    front_face,
+    left_face,
+    right_face,
+    bottom_face,
+    top_face
+};
+
+struct face
+{
+    glm::vec3 position;
+    int32_t face_type;
+};
+
 int main()
 {
     voxel_engine::window window(2560 / 2, 1440 / 2, "Voxel Engine", true);
@@ -63,7 +79,7 @@ int main()
     std::vector<block> voxel_data;
 
 
-    voxel_engine::shader voxel_shader(GET_SHADER("voxel.vert"), GET_SHADER("voxel.frag"));
+    /*voxel_engine::shader voxel_shader(GET_SHADER("voxel.vert"), GET_SHADER("voxel.frag"));
 
     voxel_engine::vertex_array vertex_array;
     voxel_engine::vertex_buffer vertex_buffer(GL_ARRAY_BUFFER);
@@ -84,7 +100,7 @@ int main()
     vertex_array.update_attribute_per_instance(3, 1);
 
     vertex_array.add_attribute_int32(4, 1, GL_INT, sizeof(int32_t));
-    vertex_array.update_attribute_per_instance(4, 1);
+    vertex_array.update_attribute_per_instance(4, 1);*/
 
     #pragma region INIT_VOXEL_CUBE_MAP_ARRAY
     std::vector<std::array<std::string, 6>> block_data = json::parse(voxel_engine::util::read_file(GET_DATA("block_data.json")));
@@ -106,7 +122,7 @@ int main()
     cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     #pragma endregion
 
-    for (int32_t i = 0; i <= 32; i++)
+    /*for (int32_t i = 0; i <= 32; i++)
     {
         for (int32_t j = 0; j <= 32; j++)
         {
@@ -116,8 +132,30 @@ int main()
     }
 
     vertex_array.bind_vertex_array();
-    vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);
+    vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);*/
 
+    voxel_engine::shader voxel_shader(GET_SHADER("voxel.vert"), GET_SHADER("voxel.frag"));
+    voxel_engine::vertex_array vertex_array;
+    voxel_engine::vertex_buffer vertex_buffer(GL_ARRAY_BUFFER);
+
+    std::vector<face> faces;
+    faces.push_back(face{
+        .position = glm::vec3(0.0, 0.0, 0.0),
+        .face_type = face_type::top_face
+    });
+    faces.push_back(face{
+        .position = glm::vec3(0.0, 0.0, 0.0),
+        .face_type = face_type::left_face
+    });
+
+    vertex_array.bind_vertex_array();
+    vertex_buffer.set_buffer_data(sizeof(faces), faces.data(), GL_STATIC_DRAW);
+
+    vertex_array.add_attribute_float32(0, 3, GL_FLOAT, GL_FALSE, sizeof(float32_t));
+    vertex_array.add_attribute_int32(1, 1, GL_INT, sizeof(int32_t));
+
+    vertex_array.update_attribute_per_instance(0, 1);
+    vertex_array.update_attribute_per_instance(1, 1);
 
     while (!window.should_close())
     {
@@ -151,7 +189,7 @@ int main()
         #pragma endregion
 
         #pragma region DRAW_CUBES
-        glPolygonMode(GL_FRONT_AND_BACK, gl_fill ? GL_FILL : GL_LINE);
+        /*glPolygonMode(GL_FRONT_AND_BACK, gl_fill ? GL_FILL : GL_LINE);
 
         voxel_shader.use();
         voxel_shader.set_mat4("u_View", camera.get_view_matrix());
@@ -179,8 +217,15 @@ int main()
         vertex_array.bind_vertex_array();
         // vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);
         vertex_array.draw_arrays_instanced(GL_TRIANGLES, 0, 36, voxel_data.size());
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);*/
         #pragma endregion
+
+
+        voxel_shader.use();
+        voxel_shader.set_mat4("view", camera.get_view_matrix());
+        voxel_shader.set_mat4("projection", camera.get_projection_matrix());
+        vertex_array.bind_vertex_array();
+        vertex_array.draw_arrays_instanced(GL_TRIANGLES, 0, 6, faces.size());
 
         skybox.render(camera);
         grid_overlay.render(camera);
