@@ -1,6 +1,6 @@
 #pragma once
 #include <glad/glad.h>
-#include "utilities/types.h"
+#include "common/types.h"
 
 namespace voxel_engine
 {

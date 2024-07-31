@@ -1,4 +1,6 @@
 #include "debug.h"
+#include <iostream>
+#include <vector>
 
 std::vector<GLuint> ignored_ids = {131185};
 

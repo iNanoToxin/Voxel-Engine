@@ -2,7 +2,7 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "utilities/types.h"
+#include "common/types.h"
 
 namespace voxel_engine
 {

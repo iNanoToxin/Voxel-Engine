@@ -1,5 +1,5 @@
 #pragma once
-#include "types.h"
+#include "common/types.h"
 
 #define VE_assert(p_Success, ...) voxel_engine::assert_condition(__LINE__, __FILE__, #p_Success, p_Success, __VA_ARGS__)
 #define VE_failure(...) voxel_engine::failure(__LINE__, __FILE__, __VA_ARGS__)

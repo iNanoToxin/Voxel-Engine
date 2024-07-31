@@ -1,7 +1,7 @@
 #pragma once
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
-#include "utilities/types.h"
+#include "common/types.h"
 #include "utilities/assert.h"
 #include "utilities/debug.h"
 

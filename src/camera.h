@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include "window.h"
-#include "utilities/types.h"
+#include "common/types.h"
 
 namespace voxel_engine
 {

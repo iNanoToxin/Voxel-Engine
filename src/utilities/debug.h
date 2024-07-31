@@ -1,8 +1,5 @@
 #pragma once
-#include "utilities/types.h"
-#include "glad/glad.h"
-#include <iostream>
-#include <vector>
+#include <glad/glad.h>
 
 namespace voxel_engine
 {

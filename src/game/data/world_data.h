@@ -16,7 +16,10 @@ namespace voxel_engine
         explicit world_data(const char* _path)
         {
             VE_assert(_path != nullptr, "World data path is `nullptr`.", _path);
-            _data = nlohmann::json::parse(util::read_file(_path));
+
+            std::string source = util::read_file(_path);
+
+            _data = source.empty() ? nlohmann::json{} : nlohmann::json::parse(source);
             this->_path = _path;
         }
 

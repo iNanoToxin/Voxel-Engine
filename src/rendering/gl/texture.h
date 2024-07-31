@@ -2,7 +2,7 @@
 #include <stb_image.h>
 #include <string>
 #include <glad/glad.h>
-#include "utilities/types.h"
+#include "common/types.h"
 
 
 namespace voxel_engine
