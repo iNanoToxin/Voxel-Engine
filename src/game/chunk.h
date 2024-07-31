@@ -1,11 +1,11 @@
 #pragma once
 #include <array>
-#include <iomanip>
-#include <iostream>
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <bitset>
+#include <iostream>
+#include <map>
 
 #include "common/constants.h"
 #include "common/types.h"
@@ -53,6 +53,7 @@ struct quad
     uint32_t w;
     uint32_t h;
 };
+
 
 inline std::vector<quad> binary_mesh_plane(uint32_t _data[CHUNK_SIZE])
 {
@@ -190,8 +191,11 @@ namespace voxel_engine
         glm::ivec3 _position;
 
         FastNoiseLite _noise;
-        uint32_t _axis_bits[3][CHUNK_SIZE][CHUNK_SIZE] {};
-        uint32_t _face_bits[6][CHUNK_SIZE][CHUNK_SIZE] {};
+        // uint32_t _axis_bits[3][CHUNK_SIZE][CHUNK_SIZE] {};
+        // uint32_t _face_bits[6][CHUNK_SIZE][CHUNK_SIZE] {};
+        std::array<std::array<std::array<uint32_t, CHUNK_SIZE>, CHUNK_SIZE>, 3> _combined_axis_bits;
+        std::map<uint32_t, std::array<std::array<std::array<uint32_t, CHUNK_SIZE>, CHUNK_SIZE>, 3>> _axis_bits;
+        std::map<uint32_t, std::array<std::array<std::array<uint32_t, CHUNK_SIZE>, CHUNK_SIZE>, 6>> _face_bits;
     public:
         explicit chunk(const glm::ivec3& _position);
 
@@ -199,6 +203,29 @@ namespace voxel_engine
         std::vector<block> get_voxels_greedy();
         std::vector<face> get_voxel_faces() const;
 
+        int32_t get_block(const uint32_t _face, const quad& _quad, const uint32_t _depth) const
+        {
+            switch (_face)
+            {
+                case face_type::left_face:
+                case face_type::right_face:
+                {
+                    return _blocks[_depth][_quad.x][_quad.y];
+                }
+                case face_type::bottom_face:
+                case face_type::top_face:
+                {
+                    return _blocks[_quad.y][_quad.x][_depth];
+                }
+                case face_type::back_face:
+                case face_type::front_face:
+                {
+                    return _blocks[_quad.x][_depth][_quad.y];
+                }
+                default: break;
+            }
+            return 0;
+        }
 
         std::vector<face> get_voxel_faces_greedy()
         {
@@ -212,106 +239,138 @@ namespace voxel_engine
                 {
                     for (uint32_t z = 0; z < CHUNK_SIZE; z++)
                     {
-                        // slices on x-axis -> contains y with respect to z
-                        _axis_bits[0][x][y] |= (1 << z) * (_blocks[x][z][y] != block_type::air_block);
-                        // slices on z-axis -> contains y with respect to x
-                        _axis_bits[1][x][y] |= (1 << z) * (_blocks[y][z][x] != block_type::air_block);
-                        // slices on y-axis -> contains x with respect to z
-                        _axis_bits[2][x][y] |= (1 << z) * (_blocks[z][x][y] != block_type::air_block);
+                        if (_blocks[x][y][z] != block_type::air_block && !_axis_bits.contains(_blocks[x][y][z]))
+                        {
+                            _axis_bits[_blocks[x][y][z]] = {};
+                        }
                     }
                 }
             }
 
-            for (uint32_t y = 0; y < CHUNK_SIZE; y++)
+
+            for (uint32_t x = 0; x < CHUNK_SIZE; x++)
             {
-                uint32_t mask0, mask1;
-                uint32_t l_slice = 0;
-                uint32_t r_slice = CHUNK_SIZE - 1;
-
-                // sets inital chunk border faces
-                _face_bits[face_type::left_face][l_slice][y] = _axis_bits[0][l_slice][y];
-                _face_bits[face_type::right_face][r_slice][y] = _axis_bits[0][r_slice][y];
-                _face_bits[face_type::bottom_face][l_slice][y] = _axis_bits[1][l_slice][y];
-                _face_bits[face_type::top_face][r_slice][y] = _axis_bits[1][r_slice][y];
-                _face_bits[face_type::back_face][l_slice][y] = _axis_bits[2][l_slice][y];
-                _face_bits[face_type::front_face][r_slice][y] = _axis_bits[2][r_slice][y];
-
-                // hides faces next to blocks and show faces next to air
-                while (l_slice < CHUNK_SIZE - 1)
+                for (uint32_t y = 0; y < CHUNK_SIZE; y++)
                 {
-                    /*
-                     *   11111111111111111(1111111)11111111 : mask0
-                     * ^ 11111111111111111(0000000)11111111 : mask1
-                     * ------------------------------------
-                     * = 00000000000000000(1111111)00000000 : mask0 ^ mask1
-                     * & 11111111111111111(1111111)11111111 : mask0
-                     * ------------------------------------
-                     * = 00000000000000000(1111111)00000000 : (mask0 ^ mask1) & mask0
-                    **/
-                    mask0 = _axis_bits[0][l_slice][y];
-                    mask1 = _axis_bits[0][l_slice + 1][y];
-                    // creates mask for right_face
-                    _face_bits[face_type::right_face][l_slice][y] = (mask0 ^ mask1) & mask0;
-
-                    mask0 = _axis_bits[1][l_slice][y];
-                    mask1 = _axis_bits[1][l_slice + 1][y];
-                    // creates mask for top_face
-                    _face_bits[face_type::top_face][l_slice][y] = (mask0 ^ mask1) & mask0;
-
-                    mask0 = _axis_bits[2][l_slice][y];
-                    mask1 = _axis_bits[2][l_slice + 1][y];
-                    // creates mask for front_face
-                    _face_bits[face_type::front_face][l_slice][y] = (mask0 ^ mask1) & mask0;
-
-                    l_slice++;
-                }
-
-                // hides faces next to blocks and show faces next to air
-                while (r_slice > 0)
-                {
-                    mask0 = _axis_bits[0][r_slice][y];
-                    mask1 = _axis_bits[0][r_slice - 1][y];
-                    // creates mask for left_face
-                    _face_bits[face_type::left_face][r_slice][y] = (mask0 ^ mask1) & mask0;
-
-                    mask0 = _axis_bits[1][r_slice][y];
-                    mask1 = _axis_bits[1][r_slice - 1][y];
-                    // creates mask for bottom_face
-                    _face_bits[face_type::bottom_face][r_slice][y] = (mask0 ^ mask1) & mask0;
-
-                    mask0 = _axis_bits[2][r_slice][y];
-                    mask1 = _axis_bits[2][r_slice - 1][y];
-                    // creates mask for back_face
-                    _face_bits[face_type::back_face][r_slice][y] = (mask0 ^ mask1) & mask0;
-
-                    r_slice--;
+                    for (uint32_t z = 0; z < CHUNK_SIZE; z++)
+                    {
+                        for (auto pair : _axis_bits)
+                        {
+                            // slices on x-axis -> contains y with respect to z
+                            _axis_bits[pair.first][0][x][y] |= (1 << z) * (_blocks[x][z][y] == pair.first);
+                            // slices on z-axis -> contains y with respect to x
+                            _axis_bits[pair.first][1][x][y] |= (1 << z) * (_blocks[y][z][x] == pair.first);
+                            // slices on y-axis -> contains x with respect to z
+                            _axis_bits[pair.first][2][x][y] |= (1 << z) * (_blocks[z][x][y] == pair.first);
+                        }
+                        // slices on x-axis -> contains y with respect to z
+                        _combined_axis_bits[0][x][y] |= (1 << z) * (_blocks[x][z][y] != block_type::air_block);
+                        // slices on z-axis -> contains y with respect to x
+                        _combined_axis_bits[1][x][y] |= (1 << z) * (_blocks[y][z][x] != block_type::air_block);
+                        // slices on y-axis -> contains x with respect to z
+                        _combined_axis_bits[2][x][y] |= (1 << z) * (_blocks[z][x][y] != block_type::air_block);
+                    }
                 }
             }
 
-            for (uint32_t slice_pos = 0; slice_pos < CHUNK_SIZE; slice_pos++)
+            for (auto pair : _axis_bits)
             {
-                for (int32_t face = 0; face < 6; face++)
+                for (uint32_t y = 0; y < CHUNK_SIZE; y++)
                 {
-                    std::vector<quad> mesh = binary_mesh_plane(_face_bits[face][slice_pos]);
+                    uint32_t mask0, mask1;
+                    uint32_t l_slice = 0;
+                    uint32_t r_slice = CHUNK_SIZE - 1;
 
-                    for (const quad& quad : mesh)
+                    // sets inital chunk border faces
+                    _face_bits[pair.first][face_type::left_face][l_slice][y] = pair.second[0][l_slice][y];
+                    _face_bits[pair.first][face_type::right_face][r_slice][y] = pair.second[0][r_slice][y];
+                    _face_bits[pair.first][face_type::bottom_face][l_slice][y] = pair.second[1][l_slice][y];
+                    _face_bits[pair.first][face_type::top_face][r_slice][y] = pair.second[1][r_slice][y];
+                    _face_bits[pair.first][face_type::back_face][l_slice][y] = pair.second[2][l_slice][y];
+                    _face_bits[pair.first][face_type::front_face][r_slice][y] = pair.second[2][r_slice][y];
+
+                    // hides faces next to blocks and show faces next to air
+                    while (l_slice < CHUNK_SIZE - 1)
                     {
-                        const glm::vec3 scale = get_face_scale(face, quad);
-                        glm::vec3 pos = get_face_position(face, quad, slice_pos);
+                        /*
+                         *   11111111111111111(1111111)11111111 : mask0
+                         * ^ 11111111111111111(0000000)11111111 : mask1
+                         * ------------------------------------
+                         * = 00000000000000000(1111111)00000000 : mask0 ^ mask1
+                         * & 11111111111111111(1111111)11111111 : mask0
+                         * ------------------------------------
+                         * = 00000000000000000(1111111)00000000 : (mask0 ^ mask1) & mask0
+                        **/
 
-                        pos += glm::vec3(_position * CHUNK_SIZE);
-                        pos += glm::vec3(0.5);
-                        pos += glm::vec3(0.0, 0.0, 16.0 * 3);
+                        // creates mask for right_face
+                        mask0 = pair.second[0][l_slice][y];
+                        mask1 = pair.second[0][l_slice + 1][y];
+                        _face_bits[pair.first][face_type::right_face][l_slice][y] = (mask0 ^ mask1) & mask0;
 
-                        glm::mat4 model(1.0);
-                        model = glm::translate(model, pos);
-                        model = glm::scale(model, scale);
+                        // creates mask for top_face
+                        mask0 = pair.second[1][l_slice][y];
+                        mask1 = pair.second[1][l_slice + 1][y];
+                        _face_bits[pair.first][face_type::top_face][l_slice][y] = (mask0 ^ mask1) & mask0;
 
-                        faces.push_back({
-                            .transform = model,
-                            .face_type = face,
-                            .block_type = 0
-                        });
+                        // creates mask for front_face
+                        mask0 = pair.second[2][l_slice][y];
+                        mask1 = pair.second[2][l_slice + 1][y];
+                        _face_bits[pair.first][face_type::front_face][l_slice][y] = (mask0 ^ mask1) & mask0;
+
+                        l_slice++;
+                    }
+
+                    // hides faces next to blocks and show faces next to air
+                    while (r_slice > 0)
+                    {
+                        // creates mask for left_face
+                        mask0 = pair.second[0][r_slice][y];
+                        mask1 = pair.second[0][r_slice - 1][y];
+                        _face_bits[pair.first][face_type::left_face][r_slice][y] = (mask0 ^ mask1) & mask0;
+
+                        // creates mask for bottom_face
+                        mask0 = pair.second[1][r_slice][y];
+                        mask1 = pair.second[1][r_slice - 1][y];
+                        _face_bits[pair.first][face_type::bottom_face][r_slice][y] = (mask0 ^ mask1) & mask0;
+
+                        // creates mask for back_face
+                        mask0 = pair.second[2][r_slice][y];
+                        mask1 = pair.second[2][r_slice - 1][y];
+                        _face_bits[pair.first][face_type::back_face][r_slice][y] = (mask0 ^ mask1) & mask0;
+
+                        r_slice--;
+                    }
+                }
+            }
+
+            for (auto pair : _axis_bits)
+            {
+                for (uint32_t depth = 0; depth < CHUNK_SIZE; depth++)
+                {
+                    for (int32_t face = 0; face < 6; face++)
+                    {
+                        std::vector<quad> mesh = binary_mesh_plane(_face_bits[pair.first][face][depth].data());
+
+                        for (const quad& quad : mesh)
+                        {
+                            const glm::vec3 scale = get_face_scale(face, quad);
+                            glm::vec3 pos = get_face_position(face, quad, depth);
+
+                            pos += glm::vec3(_position * CHUNK_SIZE);
+                            pos += glm::vec3(0.5);
+                            pos += glm::vec3(0.0, 0.0, 16.0 * 3);
+
+                            glm::mat4 model(1.0);
+                            model = glm::translate(model, pos);
+                            model = glm::scale(model, scale);
+
+                            faces.push_back({
+                                .transform = model,
+                                .face_type = face,
+                                .block_type = get_block(face, quad, depth) - 1
+                                // .block_type = static_cast<int32_t>(pair.first) - 1
+                            });
+                        }
                     }
                 }
             }
