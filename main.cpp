@@ -17,6 +17,7 @@
 
 #include "utilities/FastNoiseLite.h"
 #include "game/chunk.h"
+#include "rendering/gl/texture_2d_array.h"
 
 
 using nlohmann::json;
@@ -72,24 +73,25 @@ int main()
 
 
 
-    #pragma region INIT_VOXEL_CUBE_MAP_ARRAY
+    #pragma region INIT_VOXEL_TEXTURE_2D_ARRAY
     std::vector<std::array<std::string, 6>> block_data = json::parse(voxel_engine::util::read_file(GET_DATA("block_data.json")));
+    std::vector<std::string> texture_paths;
 
     for (uint32_t i = 0; i < block_data.size(); i++)
     {
         for (uint32_t j = 0; j < 6; j++)
         {
-            block_data[i][j] = TEXTURES_PATH + block_data[i][j];
+            texture_paths.push_back(TEXTURES_PATH + block_data[i][j]);
         }
     }
 
-    voxel_engine::cube_map_array cube_map_array;
-    cube_map_array.load_cube_map_array(block_data);
-    cube_map_array.set_texture_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    cube_map_array.set_texture_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    cube_map_array.set_texture_parameter(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    voxel_engine::texture_2d_array texture_2d_array;
+    texture_2d_array.load_texture_2d_array(texture_paths);
+    texture_2d_array.set_texture_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    texture_2d_array.set_texture_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    texture_2d_array.set_texture_parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    texture_2d_array.set_texture_parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    texture_2d_array.set_texture_parameter(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     #pragma endregion
 
 
@@ -109,9 +111,9 @@ int main()
     insert_voxel_faces(faces, v0_faces);
     insert_voxel_faces(faces, v0_faces_greedy);
 
-    // for (int32_t i = 0; i <= 64; i++)
+    // for (int32_t i = 0; i <= 128; i++)
     // {
-    //     for (int32_t j = 0; j <= 64; j++)
+    //     for (int32_t j = 0; j <= 128; j++)
     //     {
     //         voxel_engine::chunk chunk(glm::ivec3(i, 0, j));
     //         insert_voxel_faces(faces, chunk.get_voxel_faces_greedy());
@@ -220,8 +222,8 @@ int main()
         voxel_shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
         voxel_shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
         voxel_shader.set_float32("u_Material.shininess", 64.0f);
-        voxel_shader.set_int32("u_Texture", 0);
-        texture.set_active_texture(GL_TEXTURE0);
+        // voxel_shader.set_int32("u_Texture", 0);
+        // texture_2d_array.set_active_texture(GL_TEXTURE0);
         vertex_array.draw_arrays_instanced(GL_TRIANGLES, 0, 6, faces.size());
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

@@ -18,7 +18,7 @@ struct Material {
 
 in vec3 o_Normal;
 in vec3 o_FragPos;
-in vec2 o_TexCoord;
+in vec3 o_TexCoord;
 flat in ivec3 o_Scale;
 flat in int o_Face;
 //flat in int o_TexIndex;
@@ -29,17 +29,11 @@ flat in int o_Face;
 uniform vec3 u_ViewPos;
 uniform Material u_Material;
 uniform Light u_Light;
-uniform sampler2D u_Texture;
+uniform sampler2DArray u_Texture;
 
 float scale(float coord, float scale)
 {
-    coord = (coord + 1.0) / 2.0;
-
-    if (coord == 0.0 || coord == 1.0)
-    {
-        return coord * 2 - 1.0;
-    }
-    return mod(coord * scale, 1.0) * 2.0 - 1.0;
+    return mod(coord * scale, 1.0);
 }
 
 void main()
@@ -55,9 +49,9 @@ void main()
     diff = max(diff, 0.5);
 
 
-    vec2 tex_coord = o_TexCoord;
+    vec3 tex_coord = o_TexCoord;
 
-    /**if (o_Face == 0 || o_Face == 1)
+    if (o_Face == 0 || o_Face == 1)
     {
         tex_coord.x = scale(tex_coord.x, o_Scale.z);
         tex_coord.y = scale(tex_coord.y, o_Scale.y);
@@ -71,7 +65,7 @@ void main()
     {
         tex_coord.x = scale(tex_coord.x, o_Scale.x);
         tex_coord.y = scale(tex_coord.y, o_Scale.y);
-    }*/
+    }
 
 
 //    vec3 ambient = u_Light.ambient * u_Material.ambient;

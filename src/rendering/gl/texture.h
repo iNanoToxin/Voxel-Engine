@@ -16,7 +16,7 @@ namespace voxel_engine
         uint8_t* data = nullptr;
 
         explicit texture_data() = default;
-        explicit texture_data(const std::string& _path);
+        explicit texture_data(const std::string& _path, bool _flip_vertically = false);
         ~texture_data();
     };
 

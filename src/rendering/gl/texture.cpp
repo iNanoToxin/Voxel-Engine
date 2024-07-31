@@ -1,11 +1,15 @@
 #include "texture.h"
 #include "utilities/assert.h"
 
-voxel_engine::texture_data::texture_data(const std::string& _path)
+voxel_engine::texture_data::texture_data(const std::string& _path, const bool _flip_vertically)
 {
+    stbi_set_flip_vertically_on_load(_flip_vertically);
+
     data = stbi_load(_path.c_str(), &width, &height, &nr_channels, 0);
     VE_assert(data != nullptr, "Failed to load image data.", _path.c_str());
+
     format = texture::get_format(nr_channels);
+    stbi_set_flip_vertically_on_load(false);
 }
 
 voxel_engine::texture_data::~texture_data()

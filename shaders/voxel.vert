@@ -9,7 +9,7 @@ uniform mat4 u_Projection;
 
 out vec3 o_Normal;
 out vec3 o_FragPos;
-out vec2 o_TexCoord;
+out vec3 o_TexCoord;
 flat out int o_Face;
 flat out ivec3 o_Scale;
 
@@ -78,7 +78,7 @@ void main()
 
     o_Normal = mat3(transpose(inverse(model))) * normal;
     o_FragPos = vec3(model * voxel_position);
-    o_TexCoord = vec2(tex_x, tex_y);
+    o_TexCoord = vec3(tex_x, tex_y, block * 6 + face);
     o_Scale = ivec3(length(model[0].xyz), length(model[1].xyz), length(model[2].xyz));
     o_Face = face;
 

@@ -2,8 +2,8 @@
     [
         "blocks/grass_block_side.png",
         "blocks/grass_block_side.png",
-        "blocks/grass_block_top.png",
         "blocks/dirt.png",
+        "blocks/grass_block_top.png",
         "blocks/grass_block_side.png",
         "blocks/grass_block_side.png"
     ],
