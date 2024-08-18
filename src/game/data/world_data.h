@@ -1,4 +1,5 @@
 #pragma once
+#include <fstream>
 #include <glm/glm.hpp>
 #include "utilities/json.h"
 #include "utilities/util.h"
@@ -16,6 +17,8 @@ namespace voxel_engine
         explicit world_data(const char* _path)
         {
             VE_assert(_path != nullptr, "World data path is `nullptr`.", _path);
+
+            std::ofstream(_path, std::ios::app).close();
 
             std::string source = util::read_file(_path);
 
@@ -36,6 +39,11 @@ namespace voxel_engine
             {
                 return T{};
             }
+            return _data[_name];
+        }
+
+        nlohmann::json get_unsafe(const char* _name)
+        {
             return _data[_name];
         }
 

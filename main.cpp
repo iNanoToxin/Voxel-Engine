@@ -11,32 +11,15 @@
 #include "rendering/shader.h"
 #include "rendering/skybox.h"
 #include "rendering/gl/cube_map_array.h"
-#include "rendering/gl/vertex_array.h"
-#include "rendering/gl/vertex_buffer.h"
 #include "utilities/json.h"
 
 #include "utilities/FastNoiseLite.h"
 #include "game/chunk.h"
+#include "game/chunk_map.h"
 #include "rendering/gl/texture_2d_array.h"
 
 
-using nlohmann::json;
 
-void insert_voxels(std::vector<block>& _data, const std::vector<block>& _blocks)
-{
-    for (uint32_t i = 0; i < _blocks.size(); i++)
-    {
-        _data.push_back(_blocks[i]);
-    }
-}
-
-void insert_voxel_faces(std::vector<face>& _data, const std::vector<face>& _blocks)
-{
-    for (uint32_t i = 0; i < _blocks.size(); i++)
-    {
-        _data.push_back(_blocks[i]);
-    }
-}
 
 int main()
 {
@@ -69,12 +52,10 @@ int main()
     ImGuiIO* io = &ImGui::GetIO();
     io->AddMouseButtonEvent(GLFW_MOUSE_BUTTON_1, true);
 
-    std::vector<block> voxel_data;
-
 
 
     #pragma region INIT_VOXEL_TEXTURE_2D_ARRAY
-    std::vector<std::array<std::string, 6>> block_data = json::parse(voxel_engine::util::read_file(GET_DATA("block_data.json")));
+    std::vector<std::array<std::string, 6>> block_data = nlohmann::json::parse(voxel_engine::util::read_file(GET_DATA("block_data.json")));
     std::vector<std::string> texture_paths;
 
     for (uint32_t i = 0; i < block_data.size(); i++)
@@ -95,139 +76,82 @@ int main()
     #pragma endregion
 
 
-    // 00 tex_id: [000000000] size: [x: 000000 y: 000000 z: 000000] face: [000]
-
-    voxel_engine::shader voxel_shader(GET_SHADER("voxel.vert"), GET_SHADER("voxel.frag"));
-    voxel_engine::vertex_array vertex_array;
-    voxel_engine::vertex_buffer vertex_buffer(GL_ARRAY_BUFFER);
+    voxel_engine::chunk_map map;
 
 
-    voxel_engine::chunk chunk = voxel_engine::chunk(glm::vec3(0, 0, 0));
+    voxel_engine::shader vp_shader("vp.vert", "vp.frag");
 
-    std::vector<face> v0_faces = chunk.get_voxel_faces();
-    std::vector<face> v0_faces_greedy = chunk.get_voxel_faces_greedy();
+    uint32_t ssbo, vao;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &ssbo);
 
-    std::vector<face> faces;
-    insert_voxel_faces(faces, v0_faces);
-    insert_voxel_faces(faces, v0_faces_greedy);
+    std::vector<quad_data> ssbo_data;
 
-    // for (int32_t i = 0; i <= 128; i++)
-    // {
-    //     for (int32_t j = 0; j <= 128; j++)
-    //     {
-    //         voxel_engine::chunk chunk(glm::ivec3(i, 0, j));
-    //         insert_voxel_faces(faces, chunk.get_voxel_faces_greedy());
-    //     }
-    // }
+    int32_t size = 8;
 
-    vertex_array.bind_vertex_array();
-    vertex_buffer.set_buffer_data(sizeof(face) * faces.size(), faces.data(), GL_STATIC_DRAW);
+    for (int32_t y = 0; y < 2; y++)
+    {
+        for (int32_t x = 0; x < size; x++)
+        {
+            for (int32_t z = 0; z < size; z++)
+            {
+                voxel_engine::chunk* chunk = map.create_chunk(glm::ivec3(x, y, z));
 
-    vertex_array.set_stride(sizeof(face));
-    vertex_array.add_attribute_float32(0, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
-    vertex_array.add_attribute_float32(1, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
-    vertex_array.add_attribute_float32(2, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
-    vertex_array.add_attribute_float32(3, 4, GL_FLOAT, GL_FALSE, sizeof(float32_t));
-    vertex_array.add_attribute_int32(4, 1, GL_INT, sizeof(int32_t));
-    vertex_array.add_attribute_int32(5, 1, GL_INT, sizeof(int32_t));
+                std::vector<quad_data> data = chunk->generate_mesh(&map);
 
-    vertex_array.update_attribute_per_instance(0, 1);
-    vertex_array.update_attribute_per_instance(1, 1);
-    vertex_array.update_attribute_per_instance(2, 1);
-    vertex_array.update_attribute_per_instance(3, 1);
-    vertex_array.update_attribute_per_instance(4, 1);
-    vertex_array.update_attribute_per_instance(5, 1);
+                ssbo_data.insert(ssbo_data.end(), data.begin(), data.end());
+            }
+        }
+    }
 
-    voxel_engine::texture texture(GL_TEXTURE_2D);
-    voxel_engine::texture_data image(GET_TEXTURE("blocks/smooth_stone.png"));
+    // const uint x = (data.packed_data0 >> 0) & 63;
+    // const uint y = (data.packed_data0 >> 6) & 63;
+    // const uint z = (data.packed_data0 >> 12) & 63;
+    // const uint w = (data.packed_data0 >> 18) & 63;
+    // const uint h = (data.packed_data0 >> 24) & 63;
+    // const uint face = (data.packed_data1) & 7;
+    // const uint type = (data.packed_data1 >> 3) & 255;
 
-    texture.bind_texture();
-    glTexImage2D(GL_TEXTURE_2D, 0, image.format, image.width, image.height, 0, image.format, GL_UNSIGNED_BYTE, image.data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    texture.set_texture_parameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
-    texture.set_texture_parameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
-    texture.set_texture_parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    texture.set_texture_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    vp_shader.use();
+    glBindVertexArray(vao);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo_data.size() * sizeof(quad_data), ssbo_data.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+
 
 
     while (!window.should_close())
     {
-        static bool gl_fill = world_data.get<bool>("gl_fill");
-        static bool show_skybox = world_data.get<bool>("show_skybox");
-        static bool show_grid = world_data.get<bool>("show_grid");
+        static bool gl_fill = world_data.get_unsafe("gl_fill") != false;
+        static bool show_skybox = world_data.get_unsafe("show_skybox") != false;
+        static bool show_grid = world_data.get_unsafe("show_grid") != false;
 
         window.clear(20, 20, 20);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        glm::vec3 camera_position = camera.position - glm::vec3(0.0f, 32.0f, 0.0f);
-        const int32_t chunk_x = glm::floor(camera_position.x / CHUNK_SIZE);
-        const int32_t chunk_y = glm::floor(camera_position.y / CHUNK_SIZE);
-        const int32_t chunk_z = glm::floor(camera_position.z / CHUNK_SIZE);
-        glm::ivec3 chunk_position(chunk_x, chunk_y, chunk_z);
+        voxel_engine::camera::update_camera(window, camera, io);
 
-
-        #pragma region INPUT_HANDLER
-        if (!io->WantCaptureMouse && (glfwGetMouseButton(window.get_window(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS ||
-            glfwGetMouseButton(window.get_window(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS))
-        {
-            camera.capture();
-        }
-        else
-        {
-            camera.release();
-        }
-        if (glfwGetKey(window.get_window(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        {
-            glfwSetWindowShouldClose(window.get_window(), true);
-        }
-        camera.update_position();
-        #pragma endregion
 
         #pragma region DRAW_CUBES
         glPolygonMode(GL_FRONT_AND_BACK, gl_fill ? GL_FILL : GL_LINE);
-
-        /*voxel_shader.use();
-        voxel_shader.set_mat4("u_View", camera.get_view_matrix());
-        voxel_shader.set_mat4("u_Projection", camera.get_projection_matrix());
-        voxel_shader.set_vec3("u_ViewPos", camera.position);
-        voxel_shader.set_vec3("u_Light.position", camera.position + glm::vec3(0.0f, 100.0f, 0.0f));
-        voxel_shader.set_vec3("u_Light.ambient", glm::vec3(0.5f));
-        voxel_shader.set_vec3("u_Light.diffuse", glm::vec3(1.0f));
-        voxel_shader.set_vec3("u_Light.specular", glm::vec3(1.0f));
-        voxel_shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
-        voxel_shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
-        voxel_shader.set_float32("u_Material.shininess", 64.0f);
-        // voxel_shader.set_int32("u_Material.diffuse", 0);
-        // glActiveTexture(GL_TEXTURE0);
-        // glBindTexture(GL_TEXTURE_2D, atlas_texture);
-        // voxel_shader.set_i32("u_TextureArray", texture_array);
-        voxel_shader.set_int32("u_Texture", 0);
-        cube_map_array.set_active_texture(GL_TEXTURE0);
-
-        // voxel_data[0].transform = glm::translate(glm::mat4(1.0), glm::vec3(0.0, glm::sin(glfwGetTime()), 0.0));
-        // voxel_data[1].block_type = static_cast<uint32_t>(glfwGetTime() * 30) % 3;
-
-        vertex_array.bind_vertex_array();
-        // vertex_buffer.set_buffer_data(sizeof(block) * voxel_data.size(), voxel_data.data(), GL_STATIC_DRAW);
-        vertex_array.draw_arrays_instanced(GL_TRIANGLES, 0, 36, voxel_data.size());*/
-
-        voxel_shader.use();
-        voxel_shader.set_mat4("u_View", camera.get_view_matrix());
-        voxel_shader.set_mat4("u_Projection", camera.get_projection_matrix());
-        voxel_shader.set_vec3("u_ViewPos", camera.position);
-        voxel_shader.set_vec3("u_Light.position", camera.position + glm::vec3(0.0f, 100.0f, 0.0f));
-        voxel_shader.set_vec3("u_Light.ambient", glm::vec3(0.5f));
-        voxel_shader.set_vec3("u_Light.diffuse", glm::vec3(1.0f));
-        voxel_shader.set_vec3("u_Light.specular", glm::vec3(1.0f));
-        voxel_shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
-        voxel_shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
-        voxel_shader.set_float32("u_Material.shininess", 64.0f);
-        // voxel_shader.set_int32("u_Texture", 0);
-        // texture_2d_array.set_active_texture(GL_TEXTURE0);
-        vertex_array.draw_arrays_instanced(GL_TRIANGLES, 0, 6, faces.size());
-
+        vp_shader.use();
+        vp_shader.set_mat4("u_View", camera.get_view_matrix());
+        vp_shader.set_mat4("u_Projection", camera.get_projection_matrix());
+        vp_shader.set_vec3("u_ViewPos", camera.position);
+        // vp_shader.set_vec3("u_Light.position", camera.position + glm::vec3(0.0f, 100.0f, 0.0f));
+        vp_shader.set_vec3("u_Light.position", glm::vec3(250.0, 1000.0, 750.0) * 10000.0f);
+        vp_shader.set_vec3("u_Light.ambient", glm::vec3(0.5f));
+        vp_shader.set_vec3("u_Light.diffuse", glm::vec3(1.0f));
+        vp_shader.set_vec3("u_Light.specular", glm::vec3(1.0f));
+        vp_shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
+        vp_shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+        vp_shader.set_float32("u_Material.shininess", 64.0f);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, ssbo_data.size() * 6);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         #pragma endregion
+
+
 
 
         if (show_skybox) skybox.render(camera);
@@ -389,7 +313,7 @@ int main()
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Face Count");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%i", faces.size());
+                ImGui::Text("%i", ssbo_data.size());
                 ImGui::PopID();
 
                 ImGui::PushID(2);
@@ -397,7 +321,7 @@ int main()
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Triangle Count");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%i", faces.size() * 2);
+                ImGui::Text("%i", ssbo_data.size() * 6);
                 ImGui::PopID();
 
                 ImGui::PushID(3);
@@ -407,7 +331,7 @@ int main()
                 ImGui::TableSetColumnIndex(1);
                 if (ImGui::Button("Clear"))
                 {
-                    faces.clear();
+                    // ssbo_data.clear();
                 }
                 ImGui::PopID();
             }
@@ -423,12 +347,19 @@ int main()
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         #pragma endregion
 
-        world_data.set_vec3("camera_position", camera.position);
-        world_data.set_vec3("camera_front", camera.front);
-        world_data.set("gl_fill", gl_fill);
-        world_data.set("show_skybox", show_skybox);
-        world_data.set("show_grid", show_grid);
-        world_data.save();
+        #pragma region SAVE_DATA
+        static float32_t last_saved = glfwGetTime();
+        if (glfwGetTime() - last_saved >= 0.1)
+        {
+            world_data.set_vec3("camera_position", camera.position);
+            world_data.set_vec3("camera_front", camera.front);
+            world_data.set("gl_fill", gl_fill);
+            world_data.set("show_skybox", show_skybox);
+            world_data.set("show_grid", show_grid);
+            world_data.save();
+            last_saved = glfwGetTime();
+        }
+        #pragma endregion
         window.swap();
     }
 

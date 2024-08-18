@@ -1,264 +1,134 @@
 #include "chunk.h"
 
-voxel_engine::chunk::chunk(const glm::ivec3& _position)
-    : _position(_position)
+voxel_engine::chunk::chunk(const glm::ivec3& _position) : position(_position) {}
+
+void voxel_engine::chunk::generate(chunk_map* _map)
 {
-    _noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    _noise.SetFrequency(0.011254);
-    _noise.SetSeed(1234);
-
-    for (uint32_t x = 0; x < CHUNK_SIZE; x++)
+    for (uint32_t y = 0; y < CHUNK_SIZE; y++)
     {
-        for (uint32_t z = 0; z < CHUNK_SIZE; z++)
+        for (uint32_t x = 0; x < CHUNK_SIZE; x++)
         {
-            float32_t height = _noise.GetNoise(static_cast<float32_t>(_position.x * CHUNK_SIZE + x), static_cast<float32_t>(_position.z * CHUNK_SIZE + z));
-            height = (height + 1) / 2;
-            height *= 32;
-            height = glm::floor(height);
-
-            _noise_map[x][z] = height;
-        }
-    }
-
-    for (uint32_t x = 0; x < CHUNK_SIZE; x++)
-    {
-        for (uint32_t z = 0; z < CHUNK_SIZE; z++)
-        {
-            for (uint32_t y = 0; y < CHUNK_SIZE; y++)
+            for (uint32_t z = 0; z < CHUNK_SIZE; z++)
             {
-                if (y == _noise_map[x][z])
-                {
-                    _blocks[x][z][y] = block_type::grass_block;
-                }
-                else if (y < _noise_map[x][z])
-                {
-                    _blocks[x][z][y] = block_type::stone_block;
-                }
+                _blocks[y][x][z] = _map->get_block(get_world_position(x, y, z));
             }
         }
     }
 }
 
-std::vector<block> voxel_engine::chunk::get_voxels() const
+std::vector<quad_data> voxel_engine::chunk::generate_mesh(chunk_map* _map) const
 {
-    std::vector<block> blocks;
+    voxel_engine::mesh_data mesh_data;
+    mesh_data.opaque_mask = new uint64_t[CHUNK_SIZE_PADDED_2]{};
+    mesh_data.face_masks = new uint64_t[CHUNK_SIZE_2 * 6]{};
+    mesh_data.forward_merged = new uint8_t[CHUNK_SIZE_2]{};
+    mesh_data.right_merged = new uint8_t[CHUNK_SIZE]{};
+    mesh_data.vertices = new std::vector<uint64_t>(10000);
+    mesh_data.max_vertices = 10000;
 
-    for (uint32_t x = 0; x < CHUNK_SIZE; x++)
+    uint8_t* voxels = new uint8_t[CHUNK_SIZE_PADDED_3]{};
+    memset(voxels, 0, CHUNK_SIZE_PADDED_3);
+    memset(mesh_data.opaque_mask, 0, CHUNK_SIZE_PADDED_2 * sizeof(uint64_t));
+
+    for (int y = 0; y < CHUNK_SIZE_PADDED; y++)
     {
-        for (uint32_t z = 0; z < CHUNK_SIZE; z++)
+        for (int x = 0; x < CHUNK_SIZE_PADDED; x++)
         {
-            for (uint32_t y = 0; y < CHUNK_SIZE; y++)
+            for (int z = 0; z < CHUNK_SIZE_PADDED; z++)
             {
-                if (_blocks[x][z][y] == block_type::air_block)
+                if (y > 0 && x > 0 && z > 0 && y < CHUNK_SIZE_PADDED - 1 && x < CHUNK_SIZE_PADDED - 1 && z < CHUNK_SIZE_PADDED - 1)
                 {
-                    continue;
-                }
-
-                glm::mat4 model(1.0);
-                model = glm::translate(model, glm::vec3(_position * CHUNK_SIZE) + glm::vec3(x, y, z) + glm::vec3(0.5));
-
-                blocks.emplace_back(
-                    block{
-                        .transform = model,
-                        .block_type = static_cast<int32_t>(_blocks[x][z][y] - 1)
+                    if (_blocks[y - 1][x - 1][z - 1] == block_type::air_block)
+                    {
+                        continue;
                     }
-                );
+                    voxels[get_yxz_index(x, y, z)] = _blocks[y - 1][x - 1][z - 1];
+                    mesh_data.opaque_mask[y * CHUNK_SIZE_PADDED + x] |= 1ull << z;
+                }
+                else if (_map->get_block(get_world_position(x - 1, y - 1, z - 1)) != block_type::air_block)
+                {
+                    mesh_data.opaque_mask[y * CHUNK_SIZE_PADDED + x] |= 1ull << z;
+                }
             }
         }
     }
-    return blocks;
+
+    voxel_engine::greedy_mesher::mesh(voxels, mesh_data);
+
+    std::vector<quad_data> ssbo_data;
+
+    for (uint32_t face = 0; face < 6; face++)
+    {
+        const uint32_t vertex_begin = mesh_data.face_vertex_begin[face];
+        const uint32_t vertex_length = mesh_data.face_vertex_length[face];
+
+        for (uint32_t i = vertex_begin; i < vertex_begin + vertex_length; i++)
+        {
+            const uint64_t quad = mesh_data.vertices->at(i);
+
+            // pack the data -> packed_data0{x:000000, y:000000, z:000000, w:000000, h:000000, 00?}
+            // pack the data -> packed_data1{face:000, type:00000000, cx:0000000, cy:0000000 cz:0000000}
+            const uint8_t x = quad & 63u;
+            const uint8_t y = (quad >> 6u) & 63u;
+            const uint8_t z = (quad >> 12u) & 63u;
+            const uint8_t w = (quad >> 18u) & 63u;
+            const uint8_t h = (quad >> 24u) & 63u;
+            const uint8_t type = (quad >> 32u) & 63u;
+
+            if (type == block_type::air_block)
+            {
+                continue;
+            }
+
+            const uint32_t vertex_data0 = (x) | (y << 6) | (z << 12) | (w << 18) | (h << 24);
+            const uint32_t vertex_data1 = (face) | ((type - 1) << 3) | (position.x << 11) | (position.y << 18) | (position.z << 25);
+            ssbo_data.push_back(
+                quad_data{
+                    .packed_data0 = vertex_data0,
+                    .packed_data1 = vertex_data1
+                }
+            );
+        }
+    }
+
+    delete voxels;
+    delete mesh_data.opaque_mask;
+    delete mesh_data.face_masks;
+    delete mesh_data.forward_merged;
+    delete mesh_data.right_merged;
+    delete mesh_data.vertices;
+
+    return ssbo_data;
 }
 
-std::vector<block> voxel_engine::chunk::get_voxels_greedy()
+glm::ivec3 voxel_engine::chunk::get_world_position(const uint32_t _x, const uint32_t _y, const uint32_t _z) const
 {
-    std::vector<block> blocks;
-
-    for (uint32_t x = 0; x < CHUNK_SIZE; x++)
-    {
-        for (uint32_t z = 0; z < CHUNK_SIZE; z++)
-        {
-            for (uint32_t y = 0; y < CHUNK_SIZE; y++)
-            {
-                if (_blocks[x][z][y] == block_type::air_block)
-                {
-                    continue;
-                }
-
-                uint32_t w_x = 1;
-                uint32_t h_y = 1;
-                uint32_t l_z = 1;
-
-                while (x + w_x < CHUNK_SIZE && _blocks[x + w_x][z][y] == _blocks[x][z][y])
-                {
-                    _blocks[x + w_x][z][y] = block_type::air_block;
-                    w_x++;
-                }
-
-                while (z + l_z < CHUNK_SIZE && _blocks[x][z + l_z][y] == _blocks[x][z][y])
-                {
-                    bool pass = true;
-                    for (uint32_t i = 0; i < w_x; i++)
-                    {
-                        if (_blocks[x + i][z + l_z][y] != _blocks[x][z][y])
-                        {
-                            pass = false;
-                            break;
-                        }
-                    }
-                    if (!pass) break;
-
-                    for (uint32_t i = 0; i < w_x; i++)
-                    {
-                        _blocks[x + i][z + l_z][y] = block_type::air_block;
-                    }
-                    l_z++;
-                }
-
-                while (y + h_y < CHUNK_SIZE && _blocks[x][z][y + h_y] == _blocks[x][z][y])
-                {
-                    bool pass = true;
-                    for (uint32_t i = 0; i < w_x; i++)
-                    {
-                        for (uint32_t j = 0; j < l_z; j++)
-                        {
-                            if (_blocks[x + i][z + j][y + h_y] != _blocks[x][z][y])
-                            {
-                                pass = false;
-                                break;
-                            }
-                        }
-                        if (!pass) break;
-                    }
-                    if (!pass) break;
-
-                    for (uint32_t i = 0; i < w_x; i++)
-                    {
-                        for (uint32_t j = 0; j < l_z; j++)
-                        {
-                            _blocks[x + i][z + j][y + h_y] = block_type::air_block;
-                        }
-                    }
-                    h_y++;
-                }
-
-
-                const float32_t pos_x = (x * w_x + w_x * (w_x - 1.0) / 2.0) / w_x;
-                const float32_t pos_y = (y * h_y + h_y * (h_y - 1.0) / 2.0) / h_y;
-                const float32_t pos_z = (z * l_z + l_z * (l_z - 1.0) / 2.0) / l_z;
-
-                glm::mat4 model(1.0);
-                model = glm::translate(model, glm::vec3(_position * CHUNK_SIZE) + glm::vec3(pos_x, pos_y, pos_z) + glm::vec3(0.5));
-                model = glm::scale(model, glm::vec3(w_x, h_y, l_z));
-
-                blocks.emplace_back(
-                    block{
-                        .transform = model,
-                        .block_type = static_cast<int32_t>(_blocks[x][z][y] - 1)
-                    }
-                );
-                _blocks[x][z][y] = block_type::air_block;
-            }
-        }
-    }
-    return blocks;
+    return glm::ivec3(
+        position.x * CHUNK_SIZE + _x,
+        position.y * CHUNK_SIZE + _y,
+        position.z * CHUNK_SIZE + _z
+    );
 }
 
-std::vector<face> voxel_engine::chunk::get_voxel_faces() const
+glm::ivec3 voxel_engine::chunk::get_world_position(const glm::uvec3& _local_position) const
 {
-    std::vector<face> faces;
+    return get_world_position(_local_position.x, _local_position.y, _local_position.z);
+}
 
-    for (uint32_t x = 0; x < CHUNK_SIZE; x++)
-    {
-        for (uint32_t z = 0; z < CHUNK_SIZE; z++)
-        {
-            for (uint32_t y = 0; y < CHUNK_SIZE; y++)
-            {
-                if (_blocks[x][z][y] == block_type::air_block)
-                {
-                    continue;
-                }
+glm::ivec3 voxel_engine::chunk::get_chunk_position(const float32_t _x, const float32_t _y, const float32_t _z)
+{
+    const int32_t chunk_pos_x = glm::floor(_x / CHUNK_SIZE);
+    const int32_t chunk_pos_y = glm::floor(_y / CHUNK_SIZE);
+    const int32_t chunk_pos_z = glm::floor(_z / CHUNK_SIZE);
+    return glm::ivec3(chunk_pos_x, chunk_pos_y, chunk_pos_z);
+}
 
-                glm::mat4 model(1.0);
-                model = glm::translate(model, glm::vec3(_position * CHUNK_SIZE) + glm::vec3(x, y, z) + glm::vec3(0.5));
+glm::ivec3 voxel_engine::chunk::get_chunk_position(const glm::vec3& _world_position)
+{
+    return get_chunk_position(_world_position.x, _world_position.y, _world_position.z);
+}
 
-                /*for (int32_t axis = face_type::left_face; axis <= face_type::front_face; axis++)
-                {
-                    faces.push_back(
-                        face{
-                            .transform = model,
-                            .face_type = axis,
-                            .block_type = static_cast<int32_t>(_blocks[x][z][y] - 1)
-                        }
-                    );
-                }
-                {
-                    continue;
-                }*/
-
-                if (x + 1 >= CHUNK_SIZE || _blocks[x + 1][z][y] == block_type::air_block)
-                {
-                    faces.push_back(
-                        face{
-                            .transform = model,
-                            .face_type = face_type::right_face,
-                            .block_type = static_cast<int32_t>(_blocks[x][z][y] - 1)
-                        }
-                    );
-                }
-                if (x == 0 || _blocks[x - 1][z][y] == block_type::air_block)
-                {
-                    faces.push_back(
-                        face{
-                            .transform = model,
-                            .face_type = face_type::left_face,
-                            .block_type = static_cast<int32_t>(_blocks[x][z][y] - 1)
-                        }
-                    );
-                }
-
-                if (y + 1 >= CHUNK_SIZE || _blocks[x][z][y + 1] == block_type::air_block)
-                {
-                    faces.push_back(
-                        face{
-                            .transform = model,
-                            .face_type = face_type::top_face,
-                            .block_type = static_cast<int32_t>(_blocks[x][z][y] - 1)
-                        }
-                    );
-                }
-                if (y == 0 || _blocks[x][z][y - 1] == block_type::air_block)
-                {
-                    faces.push_back(
-                        face{
-                            .transform = model,
-                            .face_type = face_type::bottom_face,
-                            .block_type = static_cast<int32_t>(_blocks[x][z][y] - 1)
-                        }
-                    );
-                }
-
-                if (z + 1 >= CHUNK_SIZE || _blocks[x][z + 1][y] == block_type::air_block)
-                {
-                    faces.push_back(
-                        face{
-                            .transform = model,
-                            .face_type = face_type::front_face,
-                            .block_type = static_cast<int32_t>(_blocks[x][z][y] - 1)
-                        }
-                    );
-                }
-                if (z == 0 || _blocks[x][z - 1][y] == block_type::air_block)
-                {
-                    faces.push_back(
-                        face{
-                            .transform = model,
-                            .face_type = face_type::back_face,
-                            .block_type = static_cast<int32_t>(_blocks[x][z][y] - 1)
-                        }
-                    );
-                }
-            }
-        }
-    }
-    return faces;
+uint32_t voxel_engine::chunk::get_yxz_index(const uint32_t _x, const uint32_t _y, const uint32_t _z)
+{
+    return _z + (_x * CHUNK_SIZE_PADDED) + (_y * CHUNK_SIZE_PADDED_2);
 }

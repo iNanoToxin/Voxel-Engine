@@ -1,14 +1,17 @@
 #include <iostream>
 #include "shader.h"
+
+#include <common/constants.h>
+
 #include "utilities/util.h"
 #include "glm/gtc/type_ptr.hpp"
 
 namespace voxel_engine
 {
-    shader::shader(const char* _vertex_shader, const char* _fragment_shader)
+    shader::shader(const char* _vertex_shader_path, const char* _fragment_shader_path)
     {
-        const uint32_t vertex_shader = compile_shader(_vertex_shader, GL_VERTEX_SHADER);
-        const uint32_t fragment_shader = compile_shader(_fragment_shader, GL_FRAGMENT_SHADER);
+        const uint32_t vertex_shader = compile_shader(GET_SHADER(_vertex_shader_path), GL_VERTEX_SHADER);
+        const uint32_t fragment_shader = compile_shader(GET_SHADER(_fragment_shader_path), GL_FRAGMENT_SHADER);
 
         _id = link_shader(vertex_shader, fragment_shader);
     }

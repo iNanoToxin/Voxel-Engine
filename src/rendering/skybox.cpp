@@ -3,7 +3,7 @@
 #include "common/constants.h"
 
 voxel_engine::skybox::skybox(const std::array<std::string, 6>& _faces)
-    : _shader(GET_SHADER("skybox/skybox.vert"), GET_SHADER("skybox/skybox.frag"))
+    : _shader("skybox/skybox.vert", "skybox/skybox.frag")
 {
     _shader.use();
     _shader.set_int32("skybox", 0);

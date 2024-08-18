@@ -15,7 +15,7 @@ namespace voxel_engine
         [[nodiscard]] static uint32_t compile_shader(const char* _path, GLenum _type);
         [[nodiscard]] uint32_t link_shader(uint32_t _vertex_shader, uint32_t _fragment_shader) const;
     public:
-        shader(const char* _vertex_shader, const char* _fragment_shader);
+        shader(const char* _vertex_shader_path, const char* _fragment_shader_path);
 
         void use() const;
         void set_mat4(const char* _uniform, glm::mat4 _mat4) const;

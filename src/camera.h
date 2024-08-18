@@ -1,4 +1,5 @@
 #pragma once
+#include <imgui.h>
 #include <glm/glm.hpp>
 #include "window.h"
 #include "common/types.h"
@@ -43,5 +44,23 @@ namespace voxel_engine
         [[nodiscard]] glm::mat4 get_view_matrix() const;
         [[nodiscard]] glm::mat4 get_projection_matrix() const;
         [[nodiscard]] static camera* get_current_camera();
+
+        static void update_camera(const window& _window, camera& _camera, const ImGuiIO* _io)
+        {
+            if (!_io->WantCaptureMouse && (glfwGetMouseButton(_window.get_window(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS ||
+            glfwGetMouseButton(_window.get_window(), GLFW_MOUSE_BUTTON_2) == GLFW_PRESS))
+            {
+                _camera.capture();
+            }
+            else
+            {
+                _camera.release();
+            }
+            if (glfwGetKey(_window.get_window(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            {
+                glfwSetWindowShouldClose(_window.get_window(), true);
+            }
+            _camera.update_position();
+        }
     };
 }

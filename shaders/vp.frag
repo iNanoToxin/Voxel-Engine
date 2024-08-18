@@ -21,7 +21,7 @@ in vec3 o_Normal;
 in vec3 o_FragPos;
 in vec3 o_TexCoord;
 flat in ivec3 o_Scale;
-flat in int o_Face;
+flat in uint o_Face;
 
 uniform vec3 u_ViewPos;
 uniform Material u_Material;
@@ -35,28 +35,30 @@ float scale(float coord, float scale)
 
 void main()
 {
-    vec3 norm = normalize(o_Normal);
-    vec3 lightDir = normalize(u_Light.position - o_FragPos);
-    vec3 viewDir = normalize(u_ViewPos - o_FragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);
-
-    float diff = max(dot(norm, lightDir), 0.0);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), u_Material.shininess);
-
+    float diff = max(dot(normalize(o_Normal), normalize(u_Light.position - o_FragPos)), 0.0);
     diff = max(diff, 0.5);
 
+//    uint w_index = (o_Face & 2) >> 1;
+//    uint h_index = 2 - (o_Face >> 2);
 
     vec3 tex_coord = o_TexCoord;
+//    tex_coord.x = scale(tex_coord.x, o_Scale[h_index]);
+//    tex_coord.y = scale(tex_coord.y, o_Scale[w_index]);
 
-    if (o_Face == 0 || o_Face == 1)
+    if (o_Face == 0)
     {
         tex_coord.x = scale(tex_coord.x, o_Scale.z);
-        tex_coord.y = scale(tex_coord.y, o_Scale.y);
+        tex_coord.y = scale(tex_coord.y, o_Scale.x);
     }
-    else if (o_Face == 2 || o_Face == 3)
+    else if (o_Face == 1)
     {
         tex_coord.x = scale(tex_coord.x, o_Scale.x);
         tex_coord.y = scale(tex_coord.y, o_Scale.z);
+    }
+    else if (o_Face == 2 || o_Face == 3)
+    {
+        tex_coord.x = scale(tex_coord.x, o_Scale.z);
+        tex_coord.y = scale(tex_coord.y, o_Scale.y);
     }
     else if (o_Face == 4 || o_Face == 5)
     {
@@ -64,12 +66,5 @@ void main()
         tex_coord.y = scale(tex_coord.y, o_Scale.y);
     }
 
-
-//    vec3 ambient = u_Light.ambient * u_Material.ambient;
-    vec3 ambient = vec3(0.0);
-    vec3 diffuse = u_Light.diffuse * texture(u_Texture, tex_coord).rgb * diff;
-    vec3 specular = u_Light.specular * u_Material.specular * spec;
-    vec3 result = ambient + diffuse + specular;
-
-    FragColor = vec4(result, 1.0);
+    FragColor = vec4(u_Light.diffuse * texture(u_Texture, tex_coord).rgb * diff, 1.0);
 }

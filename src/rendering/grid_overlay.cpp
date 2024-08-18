@@ -3,7 +3,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 voxel_engine::grid_overlay::grid_overlay()
-    : _shader(GET_SHADER("grid/grid.vert"), GET_SHADER("grid/grid.frag"))
+    : _shader("grid/grid.vert", "grid/grid.frag")
     , _vertex_buffer(GL_ARRAY_BUFFER)
     , _uniform_buffer(GL_UNIFORM_BUFFER)
 {
@@ -27,7 +27,7 @@ voxel_engine::grid_overlay::grid_overlay()
         nullptr,
         GL_STATIC_DRAW
     );
-    _uniform_buffer.bind_vertex_buffer_base(0);
+    _uniform_buffer.bind_buffer_base(0);
 }
 
 void voxel_engine::grid_overlay::render(const camera& _camera)

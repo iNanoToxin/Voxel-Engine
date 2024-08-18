@@ -23,7 +23,8 @@ voxel_engine::window::window(const uint16_t _width, const uint16_t _height, cons
 
     glfwMakeContextCurrent(_window);
     glfwSetFramebufferSizeCallback(_window, &framebuffer_size_callback);
-    glfwSwapInterval(0);
+    // glfwSwapInterval(0);
+    glfwSwapInterval(1);
 
     VE_assert(gladLoadGL(), "Failed to initialize GLAD library.");
 

@@ -21,16 +21,16 @@ namespace voxel_engine
 
         void set_offset(uint32_t _offset);
 
-        void bind_vertex_buffer() const;
+        void bind_buffer() const;
 
-        void bind_vertex_buffer_base(uint32_t _binding_point) const;
+        void bind_buffer_base(uint32_t _binding_point) const;
 
         void set_buffer_data(uint64_t _size, const void* _data, GLenum _usage) const;
 
         template<typename T>
         void set_buffer_subdata(const uint64_t _data_size, const T* _data)
         {
-            bind_vertex_buffer();
+            bind_buffer();
             glBufferSubData(_buffer_type, _offset, _data_size, static_cast<const void*>(_data));
             _offset += _data_size;
         }

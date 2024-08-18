@@ -21,18 +21,18 @@ void voxel_engine::vertex_buffer::set_offset(const uint32_t _offset)
     this->_offset = _offset;
 }
 
-void voxel_engine::vertex_buffer::bind_vertex_buffer() const
+void voxel_engine::vertex_buffer::bind_buffer() const
 {
     glBindBuffer(_buffer_type, _id);
 }
 
-void voxel_engine::vertex_buffer::bind_vertex_buffer_base(const uint32_t _binding_point) const
+void voxel_engine::vertex_buffer::bind_buffer_base(const uint32_t _binding_point) const
 {
     glBindBufferBase(GL_UNIFORM_BUFFER, _binding_point, _id);
 }
 
 void voxel_engine::vertex_buffer::set_buffer_data(const uint64_t _size, const void* _data, const GLenum _usage) const
 {
-    bind_vertex_buffer();
+    bind_buffer();
     glBufferData(_buffer_type, _size, _data, _usage);
 }
