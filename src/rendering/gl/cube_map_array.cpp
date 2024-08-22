@@ -10,11 +10,11 @@ void voxel_engine::cube_map_array::load_cube_map_array(const std::vector<std::ar
 
     texture_data first_image;
 
-    for (uint32_t t_idx = 0; t_idx < _textures.size(); t_idx++)
+    for (int32_t t_idx = 0; t_idx < _textures.size(); t_idx++)
     {
         VE_assert(_textures[t_idx].size() == 6, "Expected 6 faces in cube map.");
 
-        for (uint32_t f_idx = 0; f_idx < 6; f_idx++)
+        for (int32_t f_idx = 0; f_idx < 6; f_idx++)
         {
             // load texture using stbi_load
             texture_data image(_textures[t_idx][f_idx]);

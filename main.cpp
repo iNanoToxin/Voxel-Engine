@@ -2,6 +2,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <iostream>
+#include <thread>
 #include <glm/ext/matrix_transform.hpp>
 #include "camera.h"
 #include "window.h"
@@ -19,7 +20,13 @@
 #include "rendering/gl/texture_2d_array.h"
 
 
+void f(voxel_engine::chunk_map& map, int32_t x, int32_t y, int32_t z)
+{
+    voxel_engine::chunk* chunk = map.create_chunk(glm::ivec3(x, y, z));
+    // chunk->generate_mesh(map);
 
+    std::cout << "Finished" << std::endl;
+}
 
 int main()
 {
@@ -58,9 +65,9 @@ int main()
     std::vector<std::array<std::string, 6>> block_data = nlohmann::json::parse(voxel_engine::util::read_file(GET_DATA("block_data.json")));
     std::vector<std::string> texture_paths;
 
-    for (uint32_t i = 0; i < block_data.size(); i++)
+    for (int32_t i = 0; i < block_data.size(); i++)
     {
-        for (uint32_t j = 0; j < 6; j++)
+        for (int32_t j = 0; j < 6; j++)
         {
             texture_paths.push_back(TEXTURES_PATH + block_data[i][j]);
         }
@@ -78,16 +85,12 @@ int main()
 
     voxel_engine::chunk_map map;
 
-
-    voxel_engine::shader vp_shader("vp.vert", "vp.frag");
-
-    uint32_t ssbo, vao;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &ssbo);
-
-    std::vector<quad_data> ssbo_data;
-
     int32_t size = 8;
+
+    // std::vector<std::thread> threads;
+
+
+    std::vector<std::future<void>> threads;
 
     for (int32_t y = 0; y < 2; y++)
     {
@@ -97,12 +100,30 @@ int main()
             {
                 voxel_engine::chunk* chunk = map.create_chunk(glm::ivec3(x, y, z));
 
-                std::vector<quad_data> data = chunk->generate_mesh(&map);
 
-                ssbo_data.insert(ssbo_data.end(), data.begin(), data.end());
+                // threads.push_back(std::async(std::launch::async, [=]() {
+                    chunk->generate_terrain();
+                    chunk->generate_mesh();
+                // }));
+
+                // threads.push_back(std::thread(f, std::ref(map), x, y, z));
             }
         }
     }
+
+    std::vector<voxel_engine::chunk> chunks;
+
+    for (std::future<void>& thread : threads)
+    {
+        thread.wait();
+    }
+
+    // voxel_engine::chunk chunk(glm::ivec3(0, 0, 0));
+    // chunk.generate_terrain();
+    // chunk.generate_mesh();
+
+
+    std::cout << "READY" << std::endl;
 
     // const uint x = (data.packed_data0 >> 0) & 63;
     // const uint y = (data.packed_data0 >> 6) & 63;
@@ -112,11 +133,7 @@ int main()
     // const uint face = (data.packed_data1) & 7;
     // const uint type = (data.packed_data1 >> 3) & 255;
 
-    vp_shader.use();
-    glBindVertexArray(vao);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo_data.size() * sizeof(quad_data), ssbo_data.data(), GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+
 
 
 
@@ -134,20 +151,19 @@ int main()
 
         #pragma region DRAW_CUBES
         glPolygonMode(GL_FRONT_AND_BACK, gl_fill ? GL_FILL : GL_LINE);
-        vp_shader.use();
-        vp_shader.set_mat4("u_View", camera.get_view_matrix());
-        vp_shader.set_mat4("u_Projection", camera.get_projection_matrix());
-        vp_shader.set_vec3("u_ViewPos", camera.position);
-        // vp_shader.set_vec3("u_Light.position", camera.position + glm::vec3(0.0f, 100.0f, 0.0f));
-        vp_shader.set_vec3("u_Light.position", glm::vec3(250.0, 1000.0, 750.0) * 10000.0f);
-        vp_shader.set_vec3("u_Light.ambient", glm::vec3(0.5f));
-        vp_shader.set_vec3("u_Light.diffuse", glm::vec3(1.0f));
-        vp_shader.set_vec3("u_Light.specular", glm::vec3(1.0f));
-        vp_shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
-        vp_shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
-        vp_shader.set_float32("u_Material.shininess", 64.0f);
-        glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, ssbo_data.size() * 6);
+
+
+
+
+        map.render_chunks();
+
+        // for (int32_t i = 0; i < chunks.size(); i++)
+        // {
+        //     chunks[i].render();
+        // }
+
+        // chunk.render();
+
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         #pragma endregion
 
@@ -313,7 +329,7 @@ int main()
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Face Count");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%i", ssbo_data.size());
+                ImGui::Text("%i", 0);
                 ImGui::PopID();
 
                 ImGui::PushID(2);
@@ -321,7 +337,7 @@ int main()
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Triangle Count");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%i", ssbo_data.size() * 6);
+                ImGui::Text("%i", 0);
                 ImGui::PopID();
 
                 ImGui::PushID(3);

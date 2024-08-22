@@ -1,22 +1,26 @@
 #include "chunk.h"
+#include "camera.h"
 
-voxel_engine::chunk::chunk(const glm::ivec3& _position) : position(_position) {}
-
-void voxel_engine::chunk::generate(chunk_map* _map)
+voxel_engine::chunk::chunk(const glm::ivec3& _position) : shader("vp.vert", "vp.frag"), position(_position)
 {
-    for (uint32_t y = 0; y < CHUNK_SIZE; y++)
-    {
-        for (uint32_t x = 0; x < CHUNK_SIZE; x++)
-        {
-            for (uint32_t z = 0; z < CHUNK_SIZE; z++)
-            {
-                _blocks[y][x][z] = _map->get_block(get_world_position(x, y, z));
-            }
-        }
-    }
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &ssbo);
+
+    _noise_a.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    _noise_a.SetFrequency(0.01);
+    _noise_a.SetSeed(1397);
+    // noise_a.SetFractalOctaves(4);
+
+    _noise_b.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    _noise_b.SetFrequency(0.05);
+    _noise_b.SetSeed(701);
+
+    _noise_c.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    _noise_c.SetFrequency(0.08);
+    _noise_c.SetSeed(1512);
 }
 
-std::vector<quad_data> voxel_engine::chunk::generate_mesh(chunk_map* _map) const
+void voxel_engine::chunk::generate_mesh()
 {
     voxel_engine::mesh_data mesh_data;
     mesh_data.opaque_mask = new uint64_t[CHUNK_SIZE_PADDED_2]{};
@@ -45,24 +49,24 @@ std::vector<quad_data> voxel_engine::chunk::generate_mesh(chunk_map* _map) const
                     voxels[get_yxz_index(x, y, z)] = _blocks[y - 1][x - 1][z - 1];
                     mesh_data.opaque_mask[y * CHUNK_SIZE_PADDED + x] |= 1ull << z;
                 }
-                else if (_map->get_block(get_world_position(x - 1, y - 1, z - 1)) != block_type::air_block)
-                {
-                    mesh_data.opaque_mask[y * CHUNK_SIZE_PADDED + x] |= 1ull << z;
-                }
+                // else if (get_terrain_block(x, y, z) != block_type::air_block)
+                // {
+                //     mesh_data.opaque_mask[y * CHUNK_SIZE_PADDED + x] |= 1ull << z;
+                // }
             }
         }
     }
 
     voxel_engine::greedy_mesher::mesh(voxels, mesh_data);
 
-    std::vector<quad_data> ssbo_data;
+    ssbo_data.clear();
 
-    for (uint32_t face = 0; face < 6; face++)
+    for (int32_t face = 0; face < 6; face++)
     {
-        const uint32_t vertex_begin = mesh_data.face_vertex_begin[face];
-        const uint32_t vertex_length = mesh_data.face_vertex_length[face];
+        const int32_t vertex_begin = mesh_data.face_vertex_begin[face];
+        const int32_t vertex_length = mesh_data.face_vertex_length[face];
 
-        for (uint32_t i = vertex_begin; i < vertex_begin + vertex_length; i++)
+        for (int32_t i = vertex_begin; i < vertex_begin + vertex_length; i++)
         {
             const uint64_t quad = mesh_data.vertices->at(i);
 
@@ -91,17 +95,61 @@ std::vector<quad_data> voxel_engine::chunk::generate_mesh(chunk_map* _map) const
         }
     }
 
+    glBindVertexArray(vao);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo_data.size() * sizeof(quad_data), ssbo_data.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+
+    // glBindVertexArray(0);
+    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    // vao.bind_vertex_array();
+    // ssbo.bind_buffer();
+    // ssbo.set_buffer_data(ssbo_data.size() * sizeof(quad_data), ssbo_data.data(), GL_STATIC_DRAW);
+    // ssbo.bind_buffer_base(0);
+
     delete voxels;
     delete mesh_data.opaque_mask;
     delete mesh_data.face_masks;
     delete mesh_data.forward_merged;
     delete mesh_data.right_merged;
     delete mesh_data.vertices;
-
-    return ssbo_data;
 }
 
-glm::ivec3 voxel_engine::chunk::get_world_position(const uint32_t _x, const uint32_t _y, const uint32_t _z) const
+void voxel_engine::chunk::render()
+{
+    shader.use();
+    shader.set_mat4("u_View", camera::get_current_camera()->get_view_matrix());
+    shader.set_mat4("u_Projection", camera::get_current_camera()->get_projection_matrix());
+    shader.set_vec3("u_ViewPos", camera::get_current_camera()->position);
+
+    // vp_shader.set_vec3("u_Light.position", _camera.position + glm::vec3(0.0f, 100.0f, 0.0f));
+    shader.set_vec3("u_Light.position", glm::vec3(250.0, 1000.0, 750.0) * 10000.0f);
+    shader.set_vec3("u_Light.ambient", glm::vec3(0.5f));
+    shader.set_vec3("u_Light.diffuse", glm::vec3(1.0f));
+    shader.set_vec3("u_Light.specular", glm::vec3(1.0f));
+    shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
+    shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+    shader.set_float32("u_Material.shininess", 64.0f);
+    //
+    //
+    //
+    // vao.bind_vertex_array();
+    // vao.draw_arrays(GL_TRIANGLES, 0, ssbo_data.size() * 6);
+
+    glBindVertexArray(vao);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo_data.size() * sizeof(quad_data), ssbo_data.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+
+    glDrawArrays(GL_TRIANGLES, 0, ssbo_data.size() * 6);
+
+    // glBindVertexArray(0);
+    // glUseProgram(0);
+}
+
+glm::ivec3 voxel_engine::chunk::get_world_position(const int32_t _x, const int32_t _y, const int32_t _z) const
 {
     return glm::ivec3(
         position.x * CHUNK_SIZE + _x,
@@ -110,7 +158,7 @@ glm::ivec3 voxel_engine::chunk::get_world_position(const uint32_t _x, const uint
     );
 }
 
-glm::ivec3 voxel_engine::chunk::get_world_position(const glm::uvec3& _local_position) const
+glm::ivec3 voxel_engine::chunk::get_world_position(const glm::ivec3& _local_position) const
 {
     return get_world_position(_local_position.x, _local_position.y, _local_position.z);
 }
@@ -128,7 +176,7 @@ glm::ivec3 voxel_engine::chunk::get_chunk_position(const glm::vec3& _world_posit
     return get_chunk_position(_world_position.x, _world_position.y, _world_position.z);
 }
 
-uint32_t voxel_engine::chunk::get_yxz_index(const uint32_t _x, const uint32_t _y, const uint32_t _z)
+int32_t voxel_engine::chunk::get_yxz_index(const int32_t _x, const int32_t _y, const int32_t _z)
 {
     return _z + (_x * CHUNK_SIZE_PADDED) + (_y * CHUNK_SIZE_PADDED_2);
 }

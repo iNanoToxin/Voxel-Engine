@@ -28,7 +28,7 @@ void voxel_engine::vertex_buffer::bind_buffer() const
 
 void voxel_engine::vertex_buffer::bind_buffer_base(const uint32_t _binding_point) const
 {
-    glBindBufferBase(GL_UNIFORM_BUFFER, _binding_point, _id);
+    glBindBufferBase(_buffer_type, _binding_point, _id);
 }
 
 void voxel_engine::vertex_buffer::set_buffer_data(const uint64_t _size, const void* _data, const GLenum _usage) const

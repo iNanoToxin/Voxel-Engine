@@ -19,7 +19,7 @@ namespace voxel_engine
 
             texture_data first_image;
 
-            for (uint32_t f_idx = 0; f_idx < 6; f_idx++)
+            for (int32_t f_idx = 0; f_idx < 6; f_idx++)
             {
                 // load texture using stbi_load
                 texture_data image(_faces[f_idx]);
