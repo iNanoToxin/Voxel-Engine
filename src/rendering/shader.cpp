@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 #include "shader.h"
 
 #include <common/constants.h>
@@ -34,9 +35,9 @@ namespace voxel_engine
             int32_t max_length;
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &max_length);
 
-            char info_log[max_length];
-            glGetShaderInfoLog(shader, max_length, nullptr, info_log);
-            VE_failure("Failed to compile shader.", info_log, _path);
+            std::vector<char> info_log(max_length);
+            glGetShaderInfoLog(shader, max_length, nullptr, info_log.data());
+            VE_failure("Failed to compile shader.", info_log.data(), _path);
         }
         return shader;
     }
@@ -57,9 +58,9 @@ namespace voxel_engine
             int32_t max_length;
             glGetProgramiv(program, GL_INFO_LOG_LENGTH, &max_length);
 
-            char info_log[max_length];
-            glGetProgramInfoLog(program, max_length, nullptr, info_log);
-            VE_failure("Failed to link shader.", info_log, std::to_string(_id).c_str());
+            std::vector<char> info_log(max_length);
+            glGetProgramInfoLog(program, max_length, nullptr, info_log.data());
+            VE_failure("Failed to link shader.", info_log.data(), std::to_string(_id).c_str());
         }
 
         glDetachShader(program, _vertex_shader);

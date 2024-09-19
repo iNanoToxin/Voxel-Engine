@@ -15,7 +15,7 @@ voxel_engine::window::window(const uint16_t _width, const uint16_t _height, cons
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 64);
+    // glfwWindowHint(GLFW_SAMPLES, 64);
 
     _last_frame = glfwGetTime();
     _window = glfwCreateWindow(_width, _height, _title, nullptr, nullptr);
