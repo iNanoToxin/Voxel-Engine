@@ -1,23 +1,82 @@
 #include "chunk.h"
 #include "camera.h"
 
-voxel_engine::chunk::chunk(const glm::ivec3& _position) : shader("vp.vert", "vp.frag"), position(_position)
+int32_t voxel_engine::chunk::get_terrain_height(chunk_map& _map, const int32_t _x, const int32_t _z) const
 {
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &ssbo);
+    const float32_t world_x = position.x * CHUNK_SIZE + _x;
+    const float32_t world_z = position.z * CHUNK_SIZE + _z;
 
-    _noise_a.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    _noise_a.SetFrequency(0.01);
-    _noise_a.SetSeed(1397);
-    // noise_a.SetFractalOctaves(4);
+    return _map.get_noise(world_x, world_z);
+    // return 64;
+}
 
-    _noise_b.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    _noise_b.SetFrequency(0.05);
-    _noise_b.SetSeed(701);
+int32_t voxel_engine::chunk::get_terrain_block(const int32_t _x, const int32_t _y, const int32_t _z) const
+{
+    const float32_t world_y = position.y * CHUNK_SIZE + _y;
+    const float32_t height = noise_map[_x + _z * CHUNK_SIZE];
 
-    _noise_c.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    _noise_c.SetFrequency(0.08);
-    _noise_c.SetSeed(1512);
+    if (world_y == height)
+    {
+        return block_type::grass_block;
+    }
+    else if (world_y < height)
+    {
+        return block_type::stone_block;
+    }
+    return block_type::air_block;
+}
+
+voxel_engine::chunk::chunk(const glm::ivec3& _position) : position(_position)
+{
+    glCreateVertexArrays(1, &_vao);
+    glCreateBuffers(1, &_ssbo);
+
+    blocks = new int32_t[CHUNK_SIZE_3]{};
+    noise_map = new int32_t[CHUNK_SIZE_2]{};
+    memset(blocks, 0, CHUNK_SIZE_3);
+    memset(noise_map, 0, CHUNK_SIZE_2);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, _ssbo);
+}
+
+voxel_engine::chunk::~chunk()
+{
+    glDeleteVertexArrays(1, &_vao);
+    glDeleteBuffers(1, &_ssbo);
+
+    if (thread.joinable())
+    {
+        thread.join();
+    }
+
+    // std::cout << "called dealloc" << std::endl;
+
+    delete blocks;
+    delete noise_map;
+}
+
+void voxel_engine::chunk::generate_terrain(chunk_map& _map)
+{
+    std::vector<std::future<void>> threads;
+
+    for (int32_t x = 0; x < CHUNK_SIZE; x++)
+    {
+        for (int32_t z = 0; z < CHUNK_SIZE; z++)
+        {
+            noise_map[x + z * CHUNK_SIZE] = get_terrain_height(_map, x, z);
+        }
+    }
+
+    for (int32_t y = 0; y < CHUNK_SIZE; y++)
+    {
+        for (int32_t x = 0; x < CHUNK_SIZE; x++)
+        {
+            for (int32_t z = 0; z < CHUNK_SIZE; z++)
+            {
+                blocks[y + x * CHUNK_SIZE + z * CHUNK_SIZE_2] = get_terrain_block(x, y, z);
+            }
+        }
+    }
 }
 
 void voxel_engine::chunk::generate_mesh()
@@ -42,11 +101,13 @@ void voxel_engine::chunk::generate_mesh()
             {
                 if (y > 0 && x > 0 && z > 0 && y < CHUNK_SIZE_PADDED - 1 && x < CHUNK_SIZE_PADDED - 1 && z < CHUNK_SIZE_PADDED - 1)
                 {
-                    if (_blocks[y - 1][x - 1][z - 1] == block_type::air_block)
+                    const int32_t index = (y - 1) + (x - 1) * CHUNK_SIZE + (z - 1) * CHUNK_SIZE_2;
+
+                    if (blocks[index] == block_type::air_block)
                     {
                         continue;
                     }
-                    voxels[get_yxz_index(x, y, z)] = _blocks[y - 1][x - 1][z - 1];
+                    voxels[get_yxz_index(x, y, z)] = blocks[index];
                     mesh_data.opaque_mask[y * CHUNK_SIZE_PADDED + x] |= 1ull << z;
                 }
                 // else if (get_terrain_block(x, y, z) != block_type::air_block)
@@ -59,7 +120,7 @@ void voxel_engine::chunk::generate_mesh()
 
     voxel_engine::greedy_mesher::mesh(voxels, mesh_data);
 
-    ssbo_data.clear();
+    _ssbo_data.clear();
 
     for (int32_t face = 0; face < 6; face++)
     {
@@ -86,7 +147,7 @@ void voxel_engine::chunk::generate_mesh()
 
             const uint32_t vertex_data0 = (x) | (y << 6) | (z << 12) | (w << 18) | (h << 24);
             const uint32_t vertex_data1 = (face) | ((type - 1) << 3) | (position.x << 11) | (position.y << 18) | (position.z << 25);
-            ssbo_data.push_back(
+            _ssbo_data.push_back(
                 quad_data{
                     .packed_data0 = vertex_data0,
                     .packed_data1 = vertex_data1
@@ -95,18 +156,7 @@ void voxel_engine::chunk::generate_mesh()
         }
     }
 
-    glBindVertexArray(vao);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo_data.size() * sizeof(quad_data), ssbo_data.data(), GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
-
-    // glBindVertexArray(0);
-    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-    // vao.bind_vertex_array();
-    // ssbo.bind_buffer();
-    // ssbo.set_buffer_data(ssbo_data.size() * sizeof(quad_data), ssbo_data.data(), GL_STATIC_DRAW);
-    // ssbo.bind_buffer_base(0);
+    // glNamedBufferData(_ssbo, _ssbo_data.size() * sizeof(quad_data), _ssbo_data.data(), GL_STATIC_DRAW);
 
     delete voxels;
     delete mesh_data.opaque_mask;
@@ -116,37 +166,43 @@ void voxel_engine::chunk::generate_mesh()
     delete mesh_data.vertices;
 }
 
-void voxel_engine::chunk::render()
+void voxel_engine::chunk::render(chunk_map& _map)
 {
-    shader.use();
-    shader.set_mat4("u_View", camera::get_current_camera()->get_view_matrix());
-    shader.set_mat4("u_Projection", camera::get_current_camera()->get_projection_matrix());
-    shader.set_vec3("u_ViewPos", camera::get_current_camera()->position);
+    _map.shader.use();
+    _map.shader.set_mat4("u_View", camera::get_current_camera()->get_view_matrix());
+    _map.shader.set_mat4("u_Projection", camera::get_current_camera()->get_projection_matrix());
+    _map.shader.set_vec3("u_ViewPos", camera::get_current_camera()->position);
+    _map.shader.set_vec3("u_ChunkPosition", position);
 
-    // vp_shader.set_vec3("u_Light.position", _camera.position + glm::vec3(0.0f, 100.0f, 0.0f));
-    shader.set_vec3("u_Light.position", glm::vec3(250.0, 1000.0, 750.0) * 10000.0f);
-    shader.set_vec3("u_Light.ambient", glm::vec3(0.5f));
-    shader.set_vec3("u_Light.diffuse", glm::vec3(1.0f));
-    shader.set_vec3("u_Light.specular", glm::vec3(1.0f));
-    shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
-    shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
-    shader.set_float32("u_Material.shininess", 64.0f);
-    //
-    //
-    //
-    // vao.bind_vertex_array();
-    // vao.draw_arrays(GL_TRIANGLES, 0, ssbo_data.size() * 6);
+    _map.shader.set_vec3("u_Light.position", glm::vec3(250.0, 1000.0, 750.0) * 10000.0f);
+    _map.shader.set_vec3("u_Light.ambient", glm::vec3(0.5f));
+    _map.shader.set_vec3("u_Light.diffuse", glm::vec3(1.0f));
+    _map.shader.set_vec3("u_Light.specular", glm::vec3(1.0f));
+    _map.shader.set_vec3("u_Material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
+    _map.shader.set_vec3("u_Material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+    _map.shader.set_float32("u_Material.shininess", 64.0f);
 
-    glBindVertexArray(vao);
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo_data.size() * sizeof(quad_data), ssbo_data.data(), GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _ssbo);
 
-    glDrawArrays(GL_TRIANGLES, 0, ssbo_data.size() * 6);
+    // glNamedBufferData(_ssbo, _ssbo_data.size() * sizeof(quad_data), _ssbo_data.data(), GL_STATIC_DRAW);
 
-    // glBindVertexArray(0);
-    // glUseProgram(0);
+    glBindVertexArray(_vao);
+    glDrawArrays(GL_TRIANGLES, 0, _ssbo_data.size() * 6);
+}
+
+void voxel_engine::chunk::generate(chunk_map& _map) {
+    generate_terrain(_map);
+    generate_mesh();
+    loaded = true;
+}
+
+void voxel_engine::chunk::start(chunk_map& _map) {
+    thread = std::thread([&]() {
+        generate_terrain(_map);
+        generate_mesh();
+        loaded = true;
+    });
 }
 
 glm::ivec3 voxel_engine::chunk::get_world_position(const int32_t _x, const int32_t _y, const int32_t _z) const

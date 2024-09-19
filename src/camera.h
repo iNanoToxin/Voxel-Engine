@@ -21,6 +21,7 @@ namespace voxel_engine
         float32_t pitch = 0.0f;
         float32_t near = 0.01f;
         float32_t far = 500000.0f;
+        float32_t speed = 10.0f;
 
         glm::vec3 front;
         glm::vec3 right;

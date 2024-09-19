@@ -66,7 +66,7 @@ namespace voxel_engine
 
     void camera::update_position()
     {
-        float32_t speed = _window.get_delta_time() * 10.0f;
+        float32_t speed = _window.get_delta_time() * this->speed;
 
         if (glfwGetKey(_window.get_window(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         {

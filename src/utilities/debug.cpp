@@ -2,7 +2,7 @@
 #include <iostream>
 #include <vector>
 
-std::vector<GLuint> ignored_ids = {131185};
+std::vector<GLuint> ignored_ids = {131185, 131218};
 
 namespace voxel_engine
 {

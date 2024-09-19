@@ -1,4 +1,4 @@
-#version 430 core
+#version 450 core
 
 layout (location = 0) in vec2 a_Pos;
 layout (std140, binding = 0) uniform Properties

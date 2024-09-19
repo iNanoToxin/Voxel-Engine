@@ -12,7 +12,8 @@ add_subdirectory(third-party/stb_image)
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
-add_executable(${CMAKE_PROJECT_NAME} main.cpp ${SOURCES})
+add_executable(${CMAKE_PROJECT_NAME} main.cpp ${SOURCES}
+    src/game/world_gen.h)
 
 target_compile_definitions(${CMAKE_PROJECT_NAME} PUBLIC DATA_PATH="${CMAKE_CURRENT_SOURCE_DIR}/data/")
 target_compile_definitions(${CMAKE_PROJECT_NAME} PUBLIC SHADERS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/shaders/")

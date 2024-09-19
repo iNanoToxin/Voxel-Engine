@@ -1,4 +1,4 @@
-#version 430 core
+#version 450 core
 
 float skybox_vertices[108] = {
     // positions

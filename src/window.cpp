@@ -13,7 +13,7 @@ voxel_engine::window::window(const uint16_t _width, const uint16_t _height, cons
 
     VE_assert(glfwInit(), "Failed to initialize GLFW library.");
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SAMPLES, 64);
 
@@ -23,8 +23,8 @@ voxel_engine::window::window(const uint16_t _width, const uint16_t _height, cons
 
     glfwMakeContextCurrent(_window);
     glfwSetFramebufferSizeCallback(_window, &framebuffer_size_callback);
-    // glfwSwapInterval(0);
-    glfwSwapInterval(1);
+    glfwSwapInterval(0);
+    // glfwSwapInterval(1);
 
     VE_assert(gladLoadGL(), "Failed to initialize GLAD library.");
 

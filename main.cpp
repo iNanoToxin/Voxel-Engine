@@ -2,8 +2,10 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <iostream>
+#include <queue>
+#include <set>
 #include <thread>
-#include <glm/ext/matrix_transform.hpp>
+
 #include "camera.h"
 #include "window.h"
 #include "common/constants.h"
@@ -19,6 +21,9 @@
 #include "game/chunk_map.h"
 #include "rendering/gl/texture_2d_array.h"
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+#include <glm/ext/matrix_transform.hpp>
 
 void f(voxel_engine::chunk_map& map, int32_t x, int32_t y, int32_t z)
 {
@@ -48,13 +53,14 @@ int main()
 
     camera.position = world_data.get_vec3("camera_position");
     camera.look_at(camera.position + world_data.get_vec3("camera_front"));
+    camera.speed = world_data.get<float32_t>("camera_speed");
 
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window.get_window(), true);
-    ImGui_ImplOpenGL3_Init("#version 430");
+    ImGui_ImplOpenGL3_Init("#version 450");
 
     ImGuiIO* io = &ImGui::GetIO();
     io->AddMouseButtonEvent(GLFW_MOUSE_BUTTON_1, true);
@@ -84,39 +90,39 @@ int main()
 
 
     voxel_engine::chunk_map map;
-
-    int32_t size = 8;
-
-    // std::vector<std::thread> threads;
-
-
-    std::vector<std::future<void>> threads;
-
-    for (int32_t y = 0; y < 2; y++)
-    {
-        for (int32_t x = 0; x < size; x++)
-        {
-            for (int32_t z = 0; z < size; z++)
-            {
-                voxel_engine::chunk* chunk = map.create_chunk(glm::ivec3(x, y, z));
-
-
-                // threads.push_back(std::async(std::launch::async, [=]() {
-                    chunk->generate_terrain();
-                    chunk->generate_mesh();
-                // }));
-
-                // threads.push_back(std::thread(f, std::ref(map), x, y, z));
-            }
-        }
-    }
-
-    std::vector<voxel_engine::chunk> chunks;
-
-    for (std::future<void>& thread : threads)
-    {
-        thread.wait();
-    }
+    //
+    // int32_t size = 8;
+    //
+    // // std::vector<std::thread> threads;
+    //
+    //
+    // std::vector<std::future<void>> threads;
+    //
+    // for (int32_t y = 0; y < 2; y++)
+    // {
+    //     for (int32_t x = 0; x < size; x++)
+    //     {
+    //         for (int32_t z = 0; z < size; z++)
+    //         {
+    //             voxel_engine::chunk* chunk = map.create_chunk(glm::ivec3(x, y, z));
+    //
+    //
+    //             // threads.push_back(std::async(std::launch::async, [=]() {
+    //                 chunk->generate_terrain();
+    //                 chunk->generate_mesh();
+    //             // }));
+    //
+    //             // threads.push_back(std::thread(f, std::ref(map), x, y, z));
+    //         }
+    //     }
+    // }
+    //
+    // std::vector<voxel_engine::chunk> chunks;
+    //
+    // for (std::future<void>& thread : threads)
+    // {
+    //     thread.wait();
+    // }
 
     // voxel_engine::chunk chunk(glm::ivec3(0, 0, 0));
     // chunk.generate_terrain();
@@ -124,17 +130,6 @@ int main()
 
 
     std::cout << "READY" << std::endl;
-
-    // const uint x = (data.packed_data0 >> 0) & 63;
-    // const uint y = (data.packed_data0 >> 6) & 63;
-    // const uint z = (data.packed_data0 >> 12) & 63;
-    // const uint w = (data.packed_data0 >> 18) & 63;
-    // const uint h = (data.packed_data0 >> 24) & 63;
-    // const uint face = (data.packed_data1) & 7;
-    // const uint type = (data.packed_data1 >> 3) & 255;
-
-
-
 
 
     while (!window.should_close())
@@ -144,34 +139,32 @@ int main()
         static bool show_grid = world_data.get_unsafe("show_grid") != false;
 
         window.clear(20, 20, 20);
-        glClear(GL_DEPTH_BUFFER_BIT);
+        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
         voxel_engine::camera::update_camera(window, camera, io);
 
 
         #pragma region DRAW_CUBES
-        glPolygonMode(GL_FRONT_AND_BACK, gl_fill ? GL_FILL : GL_LINE);
 
 
 
 
-        map.render_chunks();
 
-        // for (int32_t i = 0; i < chunks.size(); i++)
-        // {
-        //     chunks[i].render();
-        // }
-
-        // chunk.render();
-
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         #pragma endregion
+
+
 
 
 
 
         if (show_skybox) skybox.render(camera);
         if (show_grid) grid_overlay.render(camera);
+
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glPolygonMode(GL_FRONT_AND_BACK, gl_fill ? GL_FILL : GL_LINE);
+        map.render_chunks(map, camera.position);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 
         #pragma region IMGUI
         ImGui_ImplOpenGL3_NewFrame();
@@ -348,6 +341,7 @@ int main()
                 if (ImGui::Button("Clear"))
                 {
                     // ssbo_data.clear();
+                    map.clear();
                 }
                 ImGui::PopID();
             }
@@ -356,6 +350,8 @@ int main()
             ImGui::Checkbox("GL_FILL", &gl_fill);
             ImGui::Checkbox("SHOW_SKYBOX", &show_skybox);
             ImGui::Checkbox("SHOW_GRID", &show_grid);
+
+            ImGui::DragFloat("CAMERA_SPEED", &camera.speed, 1.0f, 0.0f, 1000.0f, "%.03f");
         }
         ImGui::End();
 
@@ -369,6 +365,7 @@ int main()
         {
             world_data.set_vec3("camera_position", camera.position);
             world_data.set_vec3("camera_front", camera.front);
+            world_data.set("camera_speed", camera.speed);
             world_data.set("gl_fill", gl_fill);
             world_data.set("show_skybox", show_skybox);
             world_data.set("show_grid", show_grid);

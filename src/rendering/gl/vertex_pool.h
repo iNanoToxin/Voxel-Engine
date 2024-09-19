@@ -3,8 +3,8 @@
 #include <deque>
 #include <iostream>
 #include <vector>
-#include "vertex_array.h"
-#include "vertex_buffer.h"
+#include <glad/glad.h>
+#include <glm/glm.hpp>
 
 namespace voxel_engine
 {
@@ -91,10 +91,10 @@ namespace voxel_engine
     class vertex_pool
     {
     private:
-        vertex_array _vertex_array;
-        vertex_buffer _vertex_buffer;
-        vertex_buffer _element_array_buffer;
-        vertex_buffer _indirect_draw_command_buffer;
+        GLuint _vertex_array;
+        GLuint _vertex_buffer;
+        GLuint _element_array_buffer;
+        GLuint _indirect_draw_command_buffer;
 
         uint64_t _k_size = 0;           // number of vertices per bucket
         uint64_t _n_buckets = 0;        // number of max buckets
@@ -113,9 +113,16 @@ namespace voxel_engine
             , _element_array_buffer(GL_ELEMENT_ARRAY_BUFFER)
             , _indirect_draw_command_buffer(GL_DRAW_INDIRECT_BUFFER)
         {
-            _vertex_array.bind_vertex_array();
-            _vertex_buffer.bind_buffer();
-            T::format(_vertex_buffer.get_id());
+            glCreateVertexArrays(1, &_vertex_array);
+            glCreateBuffers(1, &_vertex_buffer);
+            glCreateBuffers(1, &_element_array_buffer);
+            glCreateBuffers(1, &_indirect_draw_command_buffer);
+
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, _vertex_buffer);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _element_array_buffer);
+            glBindBuffer(GL_DRAW_INDIRECT_BUFFER, _indirect_draw_command_buffer);
+
+            T::format(_vertex_buffer);
         }
 
     public:
@@ -132,7 +139,7 @@ namespace voxel_engine
             {
                 unsection(_indirect_draw_commands[0].index);
             }
-            glUnmapBuffer(_vertex_buffer.get_id());
+            glUnmapBuffer(_vertex_buffer);
         }
 
         // allocate the persistently mapped buffer & create buckets for pool
@@ -145,8 +152,7 @@ namespace voxel_engine
 
             constexpr GLbitfield flag = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
 
-            _vertex_buffer.bind_buffer();
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _k_size * _n_buckets * sizeof(T), nullptr, flag);
+            glNamedBufferStorage(_vertex_buffer, _k_size * _n_buckets * sizeof(T), nullptr, flag);
             // _start = (T*) (glMapBufferRange(GL_ARRAY_BUFFER, 0, _k_size * _n_buckets * sizeof(T), flag));
 
             for (uint32_t i = 0; i < _n_buckets; i++)
@@ -332,21 +338,17 @@ namespace voxel_engine
             _group_indirect.push_back(0);
             _group_indirect.push_back(6 * _k_size);
 
-            _element_array_buffer.bind_buffer();
-            _element_array_buffer.set_buffer_data(_indices.size() * sizeof(uint32_t), _indices.data(), GL_STATIC_DRAW);
+            glNamedBufferData(_element_array_buffer, _indices.size() * sizeof(uint32_t), _indices.data(), GL_STATIC_DRAW);
         }
 
         void update() const
         {
-            _indirect_draw_command_buffer.bind_buffer();
-            _indirect_draw_command_buffer.set_buffer_data(_indirect_draw_commands.size() * sizeof(daic), _indirect_draw_commands.data(), GL_DYNAMIC_DRAW);
+            glNamedBufferData(_indirect_draw_command_buffer, _indirect_draw_commands.size() * sizeof(daic), _indirect_draw_commands.data(), GL_DYNAMIC_DRAW);
         }
 
         void render(const GLenum _mode = GL_TRIANGLES, const uint64_t _first = 0, const uint64_t _length = 0) const
         {
-            _vertex_array.bind_vertex_array();
-            _element_array_buffer.bind_buffer();
-            _indirect_draw_command_buffer.bind_buffer();
+            glBindVertexArray(_vertex_array);
             glMultiDrawElementsIndirect(_mode, GL_UNSIGNED_INT, reinterpret_cast<void*>(_first * (sizeof(daic))), _length, sizeof(daic));
         }
     };

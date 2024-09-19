@@ -1,9 +1,6 @@
 #pragma once
 #include "camera.h"
 #include "shader.h"
-#include "rendering/gl/vertex_array.h"
-#include "rendering/gl/vertex_buffer.h"
-
 
 namespace voxel_engine
 {
@@ -11,12 +8,13 @@ namespace voxel_engine
     {
     private:
         shader _shader;
-        vertex_array _vertex_array;
-        vertex_buffer _vertex_buffer;
-        vertex_buffer _uniform_buffer;
+        GLuint _vao;
+        GLuint _vbo;
+        GLuint _ubo;
 
     public:
         explicit grid_overlay();
+        ~grid_overlay();
 
         void render(const camera& _camera);
     };

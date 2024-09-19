@@ -5,6 +5,8 @@
 voxel_engine::skybox::skybox(const std::array<std::string, 6>& _faces)
     : _shader("skybox/skybox.vert", "skybox/skybox.frag")
 {
+    glCreateVertexArrays(1, &_vao);
+
     _shader.use();
     _shader.set_int32("skybox", 0);
     _cube_map.load_cube_map(_faces);
@@ -18,10 +20,14 @@ voxel_engine::skybox::skybox(const std::array<std::string, 6>& _faces)
 void voxel_engine::skybox::render(const camera& _camera) const
 {
     glDepthFunc(GL_LEQUAL);
+
     _shader.use();
     _shader.set_mat4("view", glm::mat4(glm::mat3(_camera.get_view_matrix())));
     _shader.set_mat4("projection", _camera.get_projection_matrix());
     _cube_map.set_active_texture(GL_TEXTURE0);
-    _vao.draw_arrays(GL_TRIANGLES, 0, 36);
+
+    glBindVertexArray(_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+
     glDepthFunc(GL_LESS);
 }

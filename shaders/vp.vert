@@ -1,4 +1,4 @@
-#version 430 core
+#version 450 core
 
 #define CHUNK_SIZE 32
 #define VOXEL_SIZE 1
@@ -17,12 +17,14 @@ layout (std430, binding = 0) readonly buffer vertex_pull_buffer
 
 uniform mat4 u_View;
 uniform mat4 u_Projection;
+uniform vec3 u_ChunkPosition;
 
 out vec3 o_Normal;
 out vec3 o_FragPos;
 out vec3 o_TexCoord;
 flat out ivec3 o_Scale;
 flat out uint o_Face;
+
 
 const vec3 face_offset_lookup[24] = {
     // top_face (CCW)
@@ -93,11 +95,11 @@ void main()
     const uint face = (data.packed_data1) & 7;
     const uint type = (data.packed_data1 >> 3) & 255;
 
-    const uint chunk_x = (data.packed_data1 >> 11) & 127;
-    const uint chunk_y = (data.packed_data1 >> 18) & 127;
-    const uint chunk_z = (data.packed_data1 >> 25) & 127;
+//    const uint chunk_x = (data.packed_data1 >> 11) & 127;
+//    const uint chunk_y = (data.packed_data1 >> 18) & 127;
+//    const uint chunk_z = (data.packed_data1 >> 25) & 127;
 
-    vec3 position = vec3(x, y, z) * VOXEL_SIZE + vec3(chunk_x, chunk_y, chunk_z) * CHUNK_SIZE * VOXEL_SIZE; // - vec3(HALF_VOXEL_SIZE);
+    vec3 position = vec3(x, y, z) * VOXEL_SIZE + u_ChunkPosition * CHUNK_SIZE * VOXEL_SIZE; // - vec3(HALF_VOXEL_SIZE);
 
     // get the index to update the scale's width and height according to face type
     uint w_index = (face & 2) >> 1;

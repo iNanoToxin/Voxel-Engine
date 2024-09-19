@@ -1,4 +1,4 @@
-#version 430 core
+#version 450 core
 layout (location = 0) in mat4 a_Model;
 layout (location = 4) in int a_TexIndex;
 
